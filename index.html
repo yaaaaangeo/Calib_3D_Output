@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>*{box-sizing:border-box}html,body{margin:0}body{font-size:14px}[hidden]{display:none!important}</style></head><body>
+<title>SMOBI-Calib 3D Viewer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: header tabs · 3D viewport (rviz style, single dark look) · sensor panel (side on desktop, below on phone) */
+:root {
+  --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
+  --sky: #1e9bd7; --navy: #002b68; --warn: #e8b84a; --board: #c9d6e6;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); }
+.app { display: grid; grid-template-rows: auto 1fr; height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; gap: 10px; box-sizing: border-box; }
+header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+.brand { font-weight: 700; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; }
+.tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+.tab { font: 600 13px var(--f-ui); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.tab[aria-selected="true"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+.tab:focus-visible, .cam:focus-visible, .view button:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; min-height: 0; }
+.stage { position: relative; min-height: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #13202d, var(--bg) 70%); }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.lbl { position: absolute; transform: translate(-50%, -130%); font: 500 11px var(--f-mono); color: var(--fg); background: rgba(11,17,24,.72); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
+.lbl.lcam { color: var(--sky); } .lbl.warn { color: var(--warn); } .lbl.board { color: var(--board); font-size: 10px; background: transparent; }
+.lbl.dim { opacity: .25; }
+.hud { position: absolute; left: 10px; top: 10px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.hud .t { font-weight: 700; font-size: 18px; } .hud .s { color: var(--muted); font-size: 12px; }
+.view { position: absolute; right: 10px; top: 10px; display: flex; gap: 4px; }
+.view button { font: 500 12px var(--f-ui); color: var(--fg); background: rgba(18,27,38,.85); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
+.legend { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .04em; }
+.cam { text-align: left; width: 100%; font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; display: grid; gap: 4px; }
+.cam[aria-pressed="true"] { border-color: var(--sky); background: rgba(30,155,215,.10); }
+.cam .n { font: 600 13px var(--f-mono); display: flex; justify-content: space-between; gap: 8px; }
+.cam .n span { color: var(--muted); font: 400 11px var(--f-ui); }
+.cam dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 12px; }
+.cam dt { color: var(--muted); } .cam dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.pill { font: 600 10px var(--f-ui); padding: 1px 6px; border-radius: 999px; background: rgba(232,184,74,.15); color: var(--warn); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 8px; }
+@media (max-width: 820px) {
+  .app { height: auto; min-height: 100%; }
+  main { grid-template-columns: minmax(0, 1fr); }
+  .stage { height: 62vh; min-height: 360px; }
+  aside { max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+<div class="app">
+  <header>
+    <div class="brand">SMOBI-Calib 3D Viewer<small>카메라–LiDAR 캘리브레이션 결과를 3D 공간에서 보기</small></div>
+    <nav class="tabs" role="tablist" id="tabs"></nav>
+  </header>
+  <main>
+    <div class="stage" id="stage">
+      <canvas id="cv" aria-label="캘리브레이션 3D 장면"></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="hud"><div class="t" id="ttl"></div><div class="s" id="sub"></div></div>
+      <div class="view"><button id="v-chase">뒤에서</button><button id="v-top">위에서</button><button id="v-side">옆에서</button></div>
+      <div class="legend"><span><i style="background:var(--sky)"></i>카메라 시야</span><span><i style="background:var(--warn)"></i>보드 3쌍 미만</span><span><i style="background:var(--board)"></i>보드 (구멍 4개)</span><span><i style="background:#7fe0c4"></i>LiDAR</span><span>드래그 회전 · 휠/핀치 확대</span></div>
+    </div>
+    <aside><h2>카메라 · 클릭하면 강조</h2><div id="list" style="display:grid;gap:8px"></div><div class="note" id="note"></div></aside>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiDAR 1대 · 카메라 8대 · LiDAR 기준", "frame": "LiDAR", "vehicle": {"x": [-2.05, 2.6], "y": [-0.95, 0.95], "z": [-2.1, -0.5]}, "ground": -2.1, "lidars": [{"name": "LiDAR", "p": [0, 0, 0]}], "cams": [{"name": "cam4", "p": [2.365, 1.214, -1.841], "R": [[0.992, 0.115, -0.054], [-0.074, 0.176, -0.982], [-0.103, 0.978, 0.183]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "7.8 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true}, {"name": "cam5", "p": [1.692, -0.991, -1.815], "R": [[-0.24, -0.966, 0.09], [-0.001, -0.093, -0.996], [0.971, -0.239, 0.021]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "13.2 mm"], ["영상 오차", "2.00 px"], ["위치 σ (7회)", "40.7 mm"], ["회전 σ (7회)", "0.51°"]], "warn": false}, {"name": "cam6", "p": [1.609, 1.061, -1.702], "R": [[0.164, -0.984, -0.069], [0.15, 0.094, -0.984], [0.975, 0.151, 0.163]], "fov": 120, "stats": [["보드", "4쌍"], ["RMSE", "29.1 mm"], ["영상 오차", "3.52 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false}, {"name": "cam7", "p": [1.851, -1.882, -1.709], "R": [[-0.994, 0.079, 0.08], [-0.089, -0.114, -0.99], [-0.069, -0.99, 0.12]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "3.46 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true}, {"name": "front", "p": [1.35, 0.059, -0.961], "R": [[-0.042, -0.999, 0.017], [0.05, -0.019, -0.999], [0.998, -0.041, 0.05]], "fov": 120, "stats": [["보드", "8쌍"], ["RMSE", "25.1 mm"], ["영상 오차", "2.50 px"], ["위치 σ (7회)", "10.2 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false}, {"name": "left", "p": [1.704, 0.935, -1.419], "R": [[0.994, 0.087, -0.058], [-0.065, 0.083, -0.994], [-0.082, 0.993, 0.088]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "5.9 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true}, {"name": "right", "p": [1.791, -0.938, -1.294], "R": [[-0.998, 0.046, 0.035], [-0.039, -0.089, -0.995], [-0.043, -0.995, 0.091]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "2.84 px"], ["위치 σ (7회)", "8.6 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true}, {"name": "rear", "p": [-2.0, 0.0, -1.3], "R": [[0, 1, 0], [0, 0, -1], [-1, 0, 0]], "fov": 120, "stats": [["보드", "0쌍"], ["상태", "보드가 보이지 않아 풀이 제외"]], "warn": true, "approx": true}], "boards": [{"label": "L0", "c": [0.23, 2.972, -0.877], "u": [0.802, 0.597, 0.007], "v": [-0.033, 0.033, 0.999], "n": [0.596, -0.802, 0.046], "holes": [[0.023, 2.829, -0.679], [0.424, 3.128, -0.675], [0.437, 3.114, -1.075], [0.036, 2.816, -1.078]], "cams": ["cam4", "left"]}, {"label": "L5", "c": [5.931, -1.946, -1.612], "u": [-0.55, -0.835, 0.012], "v": [0.467, -0.296, 0.834], "n": [-0.692, 0.464, 0.552], "holes": [[6.162, -1.797, -1.448], [5.887, -2.214, -1.442], [5.7, -2.096, -1.776], [5.975, -1.679, -1.782]], "cams": ["cam5", "front"]}, {"label": "L6", "c": [6.008, -1.977, 0.31], "u": [-0.579, -0.81, 0.09], "v": [-0.259, 0.288, 0.922], "n": [-0.773, 0.51, -0.377], "holes": [[6.087, -1.732, 0.48], [5.804, -2.139, 0.51], [6.208, -1.812, 0.124], [5.932, -2.227, 0.128]], "cams": ["cam5", "front"]}, {"label": "L7", "c": [6.169, -2.085, -0.664], "u": [-0.554, -0.832, -0.034], "v": [-0.026, -0.023, 0.999], "n": [-0.832, 0.554, -0.009], "holes": [[6.306, -1.884, -0.855], [6.034, -2.291, -0.864], [6.307, -1.876, -0.468], [6.03, -2.291, -0.468]], "cams": ["cam5", "front"]}, {"label": "L1", "c": [3.791, 2.597, 0.209], "u": [-0.799, 0.602, 0.001], "v": [-0.303, -0.404, 0.863], "n": [0.52, 0.689, 0.505], "holes": [[4.049, 2.524, 0.043], [3.931, 2.37, 0.375], [3.648, 2.824, 0.045], [3.536, 2.668, 0.374]], "cams": ["cam6", "front"]}, {"label": "L2", "c": [5.962, 2.099, -0.7], "u": [-0.678, 0.735, 0.001], "v": [0.009, 0.007, 1.0], "n": [0.735, 0.678, -0.011], "holes": [[6.132, 1.919, -0.499], [6.133, 1.911, -0.895], [5.791, 2.289, -0.505], [5.793, 2.279, -0.902]], "cams": ["cam6", "front"]}, {"label": "L3", "c": [5.82, 1.974, 0.278], "u": [-0.677, 0.735, -0.014], "v": [-0.285, -0.245, 0.927], "n": [0.678, 0.632, 0.376], "holes": [[6.044, 1.845, 0.092], [5.938, 1.737, 0.465], [5.707, 2.209, 0.089], [5.593, 2.106, 0.467]], "cams": ["cam6", "front"]}, {"label": "L4", "c": [5.753, 1.905, -1.64], "u": [0.673, -0.74, -0.005], "v": [0.421, 0.377, 0.825], "n": [-0.608, -0.558, 0.565], "holes": [[5.669, 2.165, -1.473], [6.006, 1.796, -1.476], [5.837, 1.645, -1.806], [5.501, 2.015, -1.803]], "cams": ["cam6", "front"]}, {"label": "L9", "c": [0.061, -3.362, -0.767], "u": [-0.681, 0.715, -0.157], "v": [-0.133, 0.09, 0.987], "n": [0.72, 0.693, 0.034], "holes": [[0.246, -3.545, -0.954], [0.223, -3.541, -0.543], [-0.105, -3.179, -0.992], [-0.119, -3.184, -0.578]], "cams": ["cam7", "right"]}, {"label": "L8", "c": [3.717, -2.639, 0.26], "u": [-0.686, -0.728, -0.017], "v": [-0.385, 0.343, 0.857], "n": [-0.618, 0.594, -0.515], "holes": [[3.808, -2.394, 0.434], [3.963, -2.524, 0.097], [3.473, -2.75, 0.425], [3.624, -2.886, 0.085]], "cams": ["front"]}], "note": "보드 1쌍 카메라(cam4·left·cam7·right)는 위치 추정이 불안정해 실제 장착 위치와 다를 수 있음"}, "eleccity": {"title": "판타G Eleccity", "sub": "2026-11-20 · 23 · 카메라 6대 · vehicle 기준 (원점 = 지면)", "frame": "vehicle", "vehicle": {"x": [-3.3, 7.9], "y": [-1.25, 1.25], "z": [0.25, 3.2]}, "ground": 0.0, "lidars": [{"name": "vehicle 원점", "p": [0, 0, 0]}], "cams": [{"name": "top_center", "p": [7.575, -0.055, 2.182], "R": [[-0.008, -1.0, -0.012], [0.02, 0.012, -1.0], [1.0, -0.008, 0.02]], "fov": 54, "stats": [["보드", "6쌍"], ["RMSE", "37.1 mm"], ["영상 오차", "10.02 px"], ["렌즈", "HFOV 54°"]], "warn": false}, {"name": "bottom_center", "p": [7.474, -0.09, 2.216], "R": [[-0.007, -1.0, -0.009], [0.021, 0.009, -1.0], [1.0, -0.007, 0.021]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "34.7 mm"], ["영상 오차", "5.62 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "left_front", "p": [7.416, 1.253, 2.75], "R": [[0.019, -0.999, -0.043], [0.048, 0.044, -0.998], [0.999, 0.017, 0.049]], "fov": 120, "stats": [["보드", "7쌍"], ["RMSE", "59.9 mm"], ["영상 오차", "5.97 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "right_front", "p": [7.421, -1.332, 2.745], "R": [[0.038, -0.999, -0.009], [-0.028, 0.008, -1.0], [0.999, 0.038, -0.028]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "27.7 mm"], ["영상 오차", "4.38 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "left_rear", "p": [7.312, 1.324, 2.73], "R": [[0.77, 0.636, 0.048], [0.021, 0.05, -0.999], [-0.637, 0.77, 0.025]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "32.7 mm"], ["영상 오차", "4.46 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "right_rear", "p": [7.232, -1.297, 2.753], "R": [[-0.816, 0.578, -0.01], [0.007, -0.006, -1.0], [-0.578, -0.816, 0.001]], "fov": 120, "stats": [["보드", "2쌍"], ["RMSE", "35.2 mm"], ["영상 오차", "8.29 px"], ["렌즈", "HFOV 128.7°"]], "warn": true}], "boards": [{"label": "L1", "c": [12.712, 1.869, 2.828], "u": [0.65, -0.759, -0.035], "v": [-0.269, -0.273, 0.924], "n": [-0.711, -0.591, -0.381], "holes": [[12.495, 2.004, 3.021], [12.82, 1.625, 3.004], [12.928, 1.734, 2.634], [12.603, 2.114, 2.652]], "cams": ["top_center"]}, {"label": "L2", "c": [12.6, -2.058, 0.821], "u": [-0.596, -0.803, -0.013], "v": [0.424, -0.328, 0.844], "n": [-0.682, 0.498, 0.537], "holes": [[12.834, -1.923, 0.993], [12.536, -2.324, 0.987], [12.366, -2.193, 0.649], [12.664, -1.791, 0.655]], "cams": ["top_center"]}, {"label": "L3", "c": [12.673, -2.088, 2.773], "u": [-0.602, -0.799, -0.003], "v": [-0.273, 0.202, 0.941], "n": [-0.751, 0.567, -0.339], "holes": [[12.769, -1.848, 2.962], [12.468, -2.247, 2.961], [12.577, -2.328, 2.584], [12.878, -1.929, 2.586]], "cams": ["top_center"]}, {"label": "L4", "c": [12.811, -2.195, 1.784], "u": [-0.589, -0.808, 0.011], "v": [0.009, 0.006, 1.0], "n": [-0.808, 0.589, 0.004], "holes": [[12.961, -1.991, 1.982], [12.666, -2.395, 1.987], [12.662, -2.398, 1.587], [12.957, -1.994, 1.582]], "cams": ["top_center"]}, {"label": "P6", "c": [12.844, 2.007, 1.773], "u": [0.638, -0.769, 0.039], "v": [-0.045, 0.014, 0.999], "n": [-0.769, -0.639, -0.026], "holes": [[12.676, 2.202, 1.963], [12.995, 1.818, 1.983], [13.012, 1.812, 1.583], [12.694, 2.197, 1.564]], "cams": ["top_center"]}, {"label": "P7", "c": [12.622, 1.838, 0.844], "u": [0.651, -0.759, 0.019], "v": [0.395, 0.36, 0.845], "n": [-0.648, -0.542, 0.534], "holes": [[12.539, 2.099, 1.008], [12.864, 1.72, 1.018], [12.706, 1.576, 0.68], [12.381, 1.955, 0.67]], "cams": ["top_center"]}, {"label": "L1", "c": [11.22, 2.008, 1.788], "u": [0.637, -0.771, 0.019], "v": [-0.052, -0.018, 0.999], "n": [-0.769, -0.637, -0.051], "holes": [[11.05, 2.197, 1.983], [11.368, 1.811, 1.992], [11.389, 1.818, 1.593], [11.071, 2.204, 1.583]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L2", "c": [11.104, 1.876, 2.798], "u": [0.641, -0.767, -0.019], "v": [-0.252, -0.233, 0.939], "n": [-0.725, -0.598, -0.343], "holes": [[10.893, 2.022, 2.99], [11.214, 1.638, 2.981], [11.314, 1.731, 2.605], [10.994, 2.115, 2.615]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L3", "c": [11.001, 1.837, 0.834], "u": [0.645, -0.764, 0.005], "v": [0.414, 0.355, 0.838], "n": [-0.642, -0.538, 0.546], "holes": [[10.923, 2.099, 1.0], [11.245, 1.717, 1.003], [11.08, 1.575, 0.668], [10.757, 1.957, 0.665]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L4", "c": [10.971, -2.035, 0.815], "u": [-0.606, -0.795, -0.03], "v": [0.408, -0.343, 0.846], "n": [-0.683, 0.501, 0.532], "holes": [[11.204, -1.905, 0.991], [10.901, -2.302, 0.977], [10.738, -2.165, 0.638], [11.041, -1.768, 0.653]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L5", "c": [11.072, -2.095, 2.762], "u": [-0.6, -0.8, -0.003], "v": [-0.289, 0.213, 0.933], "n": [-0.746, 0.561, -0.359], "holes": [[11.164, -1.853, 2.949], [10.864, -2.253, 2.948], [10.98, -2.338, 2.574], [11.279, -1.938, 2.576]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L6", "c": [11.183, -2.212, 1.772], "u": [-0.601, -0.798, 0.035], "v": [0.021, 0.028, 0.999], "n": [-0.799, 0.602, 0.0], "holes": [[11.338, -2.006, 1.963], [11.037, -2.406, 1.98], [11.029, -2.417, 1.581], [11.329, -2.017, 1.563]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L0", "c": [8.843, 2.919, 2.76], "u": [0.639, -0.769, -0.015], "v": [-0.381, -0.333, 0.862], "n": [-0.668, -0.545, -0.506], "holes": [[8.607, 3.044, 2.936], [8.926, 2.66, 2.929], [9.079, 2.793, 2.584], [8.759, 3.178, 2.591]], "cams": ["left_front"]}, {"label": "L0", "c": [2.661, 2.658, 1.777], "u": [-0.646, -0.76, -0.072], "v": [-0.05, -0.052, 0.997], "n": [-0.761, 0.648, -0.005], "holes": [[2.813, 2.838, 1.995], [2.489, 2.458, 1.959], [2.509, 2.479, 1.56], [2.833, 2.858, 1.596]], "cams": ["left_rear"]}, {"label": "L1", "c": [2.796, 2.488, 2.784], "u": [0.651, 0.759, 0.002], "v": [0.299, -0.258, 0.919], "n": [0.698, -0.598, -0.395], "holes": [[2.693, 2.247, 2.967], [3.019, 2.626, 2.968], [2.899, 2.73, 2.6], [2.574, 2.35, 2.599]], "cams": ["left_rear"]}, {"label": "L2", "c": [2.874, 2.48, 0.818], "u": [-0.65, -0.76, 0.0], "v": [-0.414, 0.355, 0.838], "n": [-0.637, 0.545, -0.545], "holes": [[2.954, 2.741, 0.985], [2.629, 2.361, 0.985], [2.795, 2.219, 0.65], [3.12, 2.599, 0.65]], "cams": ["left_rear"]}, {"label": "L0", "c": [4.253, -2.771, 0.787], "u": [-0.958, 0.286, 0.01], "v": [-0.151, -0.535, 0.831], "n": [0.243, 0.795, 0.556], "holes": [[4.463, -2.949, 0.951], [3.984, -2.807, 0.956], [4.044, -2.593, 0.624], [4.523, -2.735, 0.619]], "cams": ["right_rear"]}, {"label": "L1", "c": [4.177, -2.863, 2.766], "u": [-0.957, 0.291, -0.006], "v": [0.085, 0.301, 0.95], "n": [0.278, 0.908, -0.313], "holes": [[4.433, -2.875, 2.958], [3.955, -2.73, 2.954], [3.921, -2.85, 2.575], [4.399, -2.996, 2.578]], "cams": ["right_rear"]}], "note": "right_rear는 보드 2쌍으로 신뢰도 낮음 (3쌍 이상 권장)"}, "torres": {"title": "토레스", "sub": "Torres 03 · 2026-09-14 / 16 · LiDAR 3대 · 카메라 6대 · base_link 기준", "frame": "base_link", "vehicle": {"x": [-0.95, 3.75], "y": [-0.95, 0.95], "z": [0.2, 1.7]}, "ground": 0.0, "lidars": [{"name": "ot128", "p": [1.037, -0.012, 1.954]}, {"name": "qt128_left", "p": [1.018, 0.517, 1.758]}, {"name": "qt128_right", "p": [1.025, -0.544, 1.746]}], "cams": [{"name": "front_center_wide", "kr": "앞유리 중앙", "p": [2.043, -0.104, 1.335], "R": [[-0.003, -1.0, -0.003], [-0.021, 0.003, -1.0], [1.0, -0.003, -0.021]], "fov": 150, "stats": [["설치 위치", "앞유리 중앙"], ["각도 오차", "0.085°"], ["3D RMSE", "15.4 mm"], ["내부 RMS", "2.42 px"]], "warn": false}, {"name": "roof_left", "kr": "루프 좌측", "p": [1.655, 0.641, 1.619], "R": [[0.694, -0.72, 0.032], [0.022, -0.023, -0.999], [0.72, 0.694, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 좌측"], ["각도 오차", "0.086°"], ["3D RMSE", "25.5 mm"], ["내부 RMS", "1.02 px"]], "warn": false}, {"name": "roof_right", "kr": "루프 우측", "p": [1.563, -0.549, 1.593], "R": [[-0.679, -0.732, -0.047], [0.032, 0.034, -0.999], [0.733, -0.68, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 우측"], ["각도 오차", "0.084°"], ["3D RMSE", "17.3 mm"], ["내부 RMS", "1.41 px"]], "warn": false}, {"name": "rear_left", "kr": "좌측 후방", "p": [2.32, 0.915, 0.771], "R": [[0.86, 0.511, -0.016], [-0.024, 0.009, -1.0], [-0.51, 0.86, 0.02]], "fov": 150, "stats": [["설치 위치", "좌측 후방"], ["각도 오차", "0.127°"], ["3D RMSE", "16.4 mm"], ["내부 RMS", "1.69 px"]], "warn": false}, {"name": "rear_center", "kr": "후면 중앙", "p": [-0.773, -0.024, 1.456], "R": [[-0.019, 1.0, 0.009], [0.03, 0.01, -0.999], [-0.999, -0.019, -0.03]], "fov": 150, "stats": [["설치 위치", "후면 중앙"], ["각도 오차", "0.168°"], ["3D RMSE", "12.5 mm"], ["내부 RMS", "2.39 px"]], "warn": false}, {"name": "rear_right", "kr": "우측 후방", "p": [2.295, -0.899, 0.742], "R": [[-0.862, 0.506, -0.001], [0.021, 0.033, -0.999], [-0.506, -0.862, -0.039]], "fov": 150, "stats": [["설치 위치", "우측 후방"], ["각도 오차", "0.169°"], ["3D RMSE", "27.7 mm"], ["내부 RMS", "1.25 px"]], "warn": false}], "boards": [], "note": "보드 좌표 기록이 없어 센서 배치만 표시 · 평균 각도 오차 0.120°, 3D RMSE 19.1 mm"}};
+(function () {
+  const KEYS = ["ioniq", "eleccity", "torres"];
+  const C = { sky: 0x1e9bd7, warn: 0xe8b84a, board: 0xc9d6e6, lidar: 0x7fe0c4, veh: 0x5f7a99, grid: 0x24313f };
+  const stage = document.getElementById("stage"), cv = document.getElementById("cv"), labelsEl = document.getElementById("labels");
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(45, 1, 0.05, 500); cam.up.set(0, 0, 1);
+  const ctl = new THREE.OrbitControls(cam, cv); ctl.enableDamping = true; ctl.dampingFactor = 0.1;
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7)); const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5, -8, 12); scene.add(dl);
+  let root = null, labels = [], camObjs = {}, current = null, selected = null, bounds = null;
+
+  const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
+  function lineMat(color, opacity, dashed) {
+    return dashed ? new THREE.LineDashedMaterial({ color, transparent: true, opacity, dashSize: 0.15, gapSize: 0.1 })
+                  : new THREE.LineBasicMaterial({ color, transparent: true, opacity });
+  }
+  function seg(pts, mat) { const g = new THREE.BufferGeometry().setFromPoints(pts); const l = new THREE.LineSegments(g, mat); if (mat.isLineDashedMaterial) l.computeLineDistances(); return l; }
+  function label(text, pos, cls) { const el = document.createElement("div"); el.className = "lbl " + cls; el.textContent = text; labelsEl.appendChild(el); labels.push({ el, pos }); return el; }
+
+  function build(key) {
+    const d = DATA[key]; current = key; selected = null;
+    if (root) scene.remove(root); labelsEl.innerHTML = ""; labels = []; camObjs = {};
+    root = new THREE.Group(); scene.add(root);
+    document.getElementById("ttl").textContent = d.title; document.getElementById("sub").textContent = d.sub;
+    document.getElementById("note").textContent = d.note;
+    const g0 = d.ground, vx = d.vehicle;
+    // ground grid
+    const pts = []; const span = 40;
+    for (let i = -span; i <= span; i++) { pts.push(new THREE.Vector3(i, -span, g0), new THREE.Vector3(i, span, g0), new THREE.Vector3(-span, i, g0), new THREE.Vector3(span, i, g0)); }
+    root.add(seg(pts, lineMat(C.grid, 0.55)));
+    // vehicle
+    const sx = vx.x[1] - vx.x[0], sy = vx.y[1] - vx.y[0], sz = vx.z[1] - vx.z[0];
+    const box = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshLambertMaterial({ color: C.veh, transparent: true, opacity: 0.22 }));
+    box.position.set(vx.x[0] + sx / 2, vx.y[0] + sy / 2, vx.z[0] + sz / 2); root.add(box);
+    const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), lineMat(0x8fa6c0, 0.8)); edges.position.copy(box.position); root.add(edges);
+    const arrow = new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(vx.x[1] - sx * 0.35, 0, vx.z[1] + 0.02), sx * 0.3, 0x8fa6c0, 0.3, 0.2); root.add(arrow);
+    label("전방 →", new THREE.Vector3(vx.x[1], 0, vx.z[1] + 0.1), "");
+    // lidars
+    d.lidars.forEach(l => {
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.14, 20), new THREE.MeshLambertMaterial({ color: C.lidar }));
+      m.rotation.x = Math.PI / 2; m.position.copy(V(l.p)); root.add(m);
+      const ax = new THREE.AxesHelper(0.5); ax.position.copy(V(l.p)); root.add(ax);
+      label(l.name, V(l.p), "");
+    });
+    // boards
+    const boardObjs = [];
+    d.boards.forEach(b => {
+      const c = V(b.c), u = V(b.u), v = V(b.v), n = V(b.n);
+      const grp = new THREE.Group();
+      const basis = new THREE.Matrix4().makeBasis(u, v, n);
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.9), new THREE.MeshLambertMaterial({ color: C.board, transparent: true, opacity: 0.28, side: THREE.DoubleSide }));
+      plane.quaternion.setFromRotationMatrix(basis); plane.position.copy(c); grp.add(plane);
+      const pe = new THREE.LineSegments(new THREE.EdgesGeometry(plane.geometry), lineMat(C.board, 0.9)); pe.quaternion.copy(plane.quaternion); pe.position.copy(c); grp.add(pe);
+      b.holes.forEach(h => {
+        const ring = []; for (let k = 0; k <= 32; k++) { const a = k / 32 * Math.PI * 2; ring.push(V(h).add(u.clone().multiplyScalar(0.12 * Math.cos(a))).add(v.clone().multiplyScalar(0.12 * Math.sin(a)))); }
+        grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), lineMat(0xffffff, 0.9)));
+      });
+      root.add(grp);
+      const el = label(b.label, c.clone().add(new THREE.Vector3(0, 0, 0.55)), "board");
+      boardObjs.push({ b, grp, el, c });
+    });
+    // cameras
+    const list = document.getElementById("list"); list.innerHTML = "";
+    d.cams.forEach(cm => {
+      const p = V(cm.p), X = V(cm.R[0]), Y = V(cm.R[1]), Z = V(cm.R[2]);
+      const col = cm.warn ? C.warn : C.sky;
+      const L = key === "eleccity" ? 1.1 : 0.7, hf = Math.min(cm.fov, 110) * Math.PI / 360, vf = hf * 0.62;
+      const corners = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, bb]) => p.clone().add(Z.clone().multiplyScalar(L)).add(X.clone().multiplyScalar(a * L * Math.tan(hf))).add(Y.clone().multiplyScalar(bb * L * Math.tan(vf))));
+      const fp = []; corners.forEach((q, i) => { fp.push(p, q, q, corners[(i + 1) % 4]); });
+      const frus = seg(fp, lineMat(col, 0.95, !!cm.approx)); root.add(frus);
+      const face = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]]), new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.08, side: THREE.DoubleSide }));
+      root.add(face);
+      const dot = new THREE.Mesh(new THREE.SphereGeometry(0.05, 12, 12), new THREE.MeshBasicMaterial({ color: col })); dot.position.copy(p); root.add(dot);
+      const lp = []; boardObjs.forEach(o => { if (o.b.cams.includes(cm.name)) lp.push(p, o.c); });
+      const links = lp.length ? seg(lp, lineMat(col, 0.18, true)) : null; if (links) root.add(links);
+      const el = label(cm.kr || cm.name, p, cm.warn ? "warn" : "lcam");
+      camObjs[cm.name] = { frus, face, dot, links, el, cm };
+      const btn = document.createElement("button"); btn.className = "cam"; btn.setAttribute("aria-pressed", "false");
+      btn.innerHTML = `<div class="n">${cm.name}${cm.warn ? ' <b class="pill">보드 부족</b>' : ""}<span>${cm.kr ? cm.kr : ""}</span></div><dl>${cm.stats.map(s => `<dt>${s[0]}</dt><dd>${s[1]}</dd>`).join("")}</dl>`;
+      btn.addEventListener("click", () => select(selected === cm.name ? null : cm.name));
+      camObjs[cm.name].btn = btn; list.appendChild(btn);
+    });
+    root.userData.boardObjs = boardObjs;
+    // bounds
+    const bb = new THREE.Box3().setFromObject(box); d.cams.forEach(c => bb.expandByPoint(V(c.p))); d.boards.forEach(b => bb.expandByPoint(V(b.c)));
+    bounds = bb; setView("chase");
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.k === key ? "true" : "false"));
+  }
+
+  function select(name) {
+    selected = name;
+    Object.entries(camObjs).forEach(([n, o]) => {
+      const on = !name || n === name;
+      o.frus.material.opacity = on ? 0.95 : 0.15; o.face.material.opacity = on ? (name ? 0.16 : 0.08) : 0.02;
+      if (o.links) o.links.material.opacity = name ? (n === name ? 0.9 : 0.03) : 0.18;
+      o.el.classList.toggle("dim", !on); o.btn.setAttribute("aria-pressed", n === name ? "true" : "false");
+    });
+    (root.userData.boardObjs || []).forEach(o => {
+      const on = !name || o.b.cams.includes(name);
+      o.grp.children.forEach(ch => { ch.material.opacity = on ? (ch.isMesh ? 0.32 : 0.9) : 0.06; });
+      o.el.classList.toggle("dim", !on);
+    });
+  }
+
+  function setView(kind) {
+    const c = bounds.getCenter(new THREE.Vector3()), s = bounds.getSize(new THREE.Vector3()), r = Math.max(s.x, s.y, 7);
+    const pos = { chase: [c.x - r * 0.95, c.y - r * 0.55, c.z + r * 0.6], top: [c.x, c.y - 0.01, c.z + r * 1.35], side: [c.x, c.y - r * 1.3, c.z + r * 0.25] }[kind];
+    cam.position.set(...pos); ctl.target.copy(c); ctl.update();
+  }
+  ["chase", "top", "side"].forEach(k => document.getElementById("v-" + k).addEventListener("click", () => setView(k)));
+
+  const tabs = document.getElementById("tabs");
+  KEYS.forEach(k => { const b = document.createElement("button"); b.className = "tab"; b.role = "tab"; b.dataset.k = k; b.textContent = DATA[k].title; b.addEventListener("click", () => { location.hash = k; }); tabs.appendChild(b); });
+  function route() { const k = (location.hash || "").slice(1); build(KEYS.includes(k) ? k : KEYS[0]); }
+  window.addEventListener("hashchange", route);
+
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage);
+  const tmp = new THREE.Vector3();
+  function loop() {
+    ctl.update(); renderer.render(scene, cam);
+    const w = stage.clientWidth, h = stage.clientHeight;
+    labels.forEach(({ el, pos }) => { tmp.copy(pos).project(cam); const vis = tmp.z < 1 && Math.abs(tmp.x) < 1.1 && Math.abs(tmp.y) < 1.1; el.hidden = !vis; if (vis) { el.style.left = ((tmp.x + 1) / 2 * w) + "px"; el.style.top = ((1 - tmp.y) / 2 * h) + "px"; } });
+    requestAnimationFrame(loop);
+  }
+  resize(); route(); loop();
+})();
+</script>
+
+</body></html>
