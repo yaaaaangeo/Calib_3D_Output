@@ -101,7 +101,7 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
         <canvas id="g3" width="1280" height="800" aria-label="차량, 센서, 캘판 3D 배치. 클릭해서 선택하고 드래그해서 옮길 수 있음"></canvas>
         <div class="tip">클릭 = 선택 · 선택한 것을 드래그 = 이동 · 빈 곳 드래그 = 시점 회전 · 휠 = 확대</div>
       </div>
-      <div class="legend"><span><i style="background:#59d1a0"></i>라이다 라인 10줄+</span><span><i style="background:#e8b84a"></i>5~9줄</span><span><i style="background:#ff7a7a"></i>5줄 미만</span><span><i style="background:#fff"></i>보드에 맞은 라이다 점</span><span><i style="background:#7fe0c4"></i>라이다</span><span><i style="background:#1e9bd7"></i>카메라 시야</span></div>
+      <div class="legend"><span><i style="background:#ff3b3b"></i>캘판에 찍힐 라이다 포인트 클라우드</span><span><i style="background:#3ddc84"></i>카메라 화각</span><span>센서 좌표계 축: x 앞 · y 왼쪽 · z 위 (빨강·초록·파랑, rviz 방식)</span></div>
     </div>
     <div class="card">
       <h2>선택<span class="hint" id="sel-kind">없음</span></h2>
@@ -283,6 +283,8 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
   const C3 = { ok: 0x59d1a0, warn: 0xe8b84a, bad: 0xff7a7a };
   let dyn = null, camSet = null;
   const isSel = (kind, i) => sel && sel.kind === kind && (kind === "veh" || sel.i === i);
+  function axes(o, dirs, len) {
+    const g = new THREE.Group(); [0xff4d4d, 0x4dd96b, 0x4d8dff].forEach((c, k) => { const e = o.clone().add(dirs[k].clone().normalize().multiplyScalar(len)); g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o, e]), new THREE.LineBasicMaterial({ color: c }))); }); return g; }
   function build3d(withPts) {
     if (dyn) { sc.remove(dyn); dyn.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
     dyn = new THREE.Group(); sc.add(dyn); picks = [];
@@ -290,19 +292,23 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
     const box = new THREE.Mesh(new THREE.BoxGeometry(b[1] - b[0], 2 * b[2], b[3] - 0.3), new THREE.MeshLambertMaterial({ color: isSel("veh") ? 0x2c5f86 : 0x5f7a99, transparent: true, opacity: .4 }));
     box.position.set(cx, cy, .3 + (b[3] - .3) / 2); box.rotation.z = S.pose.yaw * D2R; box.userData = { kind: "veh" }; dyn.add(box); picks.push(box);
     const ed = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineBasicMaterial({ color: isSel("veh") ? 0xffffff : 0x8fa6c0 })); ed.position.copy(box.position); ed.rotation.copy(box.rotation); dyn.add(ed);
+    const yr = S.pose.yaw * D2R; dyn.add(axes(new THREE.Vector3(S.pose.x, S.pose.y, 0.02), [new THREE.Vector3(Math.cos(yr), Math.sin(yr), 0), new THREE.Vector3(-Math.sin(yr), Math.cos(yr), 0), new THREE.Vector3(0, 0, 1)], 1.2));
     const [fx, fy] = toW(S, b[1] + 0.8, 0); const ar = new THREE.ArrowHelper(new THREE.Vector3(Math.cos(S.pose.yaw * D2R), Math.sin(S.pose.yaw * D2R), 0), new THREE.Vector3(...toW(S, b[1] - 0.2, 0), b[3] + 0.05), 1.0, 0xcfe3f5, .35, .25); dyn.add(ar);
     // sensors
     S.sensors.forEach((s, si) => {
       const [x, y] = toW(S, s.x, s.y), on = isSel("sensor", si);
-      if (s.kind === "lid") { const m = new THREE.Mesh(new THREE.CylinderGeometry(on ? .14 : .1, on ? .14 : .1, .16, 16), new THREE.MeshLambertMaterial({ color: on ? 0xffffff : 0x7fe0c4 })); m.rotation.x = Math.PI / 2; m.position.set(x, y, s.z); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m); }
+      if (s.kind === "lid") { const m = new THREE.Mesh(new THREE.CylinderGeometry(on ? .14 : .1, on ? .14 : .1, .16, 16), new THREE.MeshLambertMaterial({ color: on ? 0xffffff : 0x7fe0c4 })); m.rotation.x = Math.PI / 2; m.position.set(x, y, s.z); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m);
+        const M = rotM(s.roll, s.pitch, s.yaw + S.pose.yaw); dyn.add(axes(new THREE.Vector3(x, y, s.z), [0, 1, 2].map(k => new THREE.Vector3(M[0][k], M[1][k], M[2][k])), on ? .7 : .5)); }
       else {
         const yaw = (s.yaw + S.pose.yaw) * D2R, pit = s.pitch * D2R, L = on ? 1.4 : 0.9, hf = Math.min(s.hfov, 150) * D2R / 2, vf = Math.min(s.hfov * .65, 120) * D2R / 2;
         const p = new THREE.Vector3(x, y, s.z), f = new THREE.Vector3(Math.cos(yaw) * Math.cos(pit), Math.sin(yaw) * Math.cos(pit), Math.sin(pit)), l = new THREE.Vector3(-Math.sin(yaw), Math.cos(yaw), 0), u = new THREE.Vector3().crossVectors(f, l);
         const cs = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, c]) => p.clone().add(f.clone().multiplyScalar(L)).add(l.clone().multiplyScalar(a * L * Math.tan(hf))).add(u.clone().multiplyScalar(c * L * Math.tan(vf))));
         const lp = []; cs.forEach((q, k) => lp.push(p, q, q, cs[(k + 1) % 4]));
-        const cr = CR.find(c => c.ref === s); const col = on ? 0xffffff : cr ? C3[cr.st] : 0x1e9bd7;
-        dyn.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: focus && focus !== s.name ? .2 : .9 })));
-        const m = new THREE.Mesh(new THREE.SphereGeometry(on ? .12 : .08, 12, 12), new THREE.MeshBasicMaterial({ color: on ? 0xffffff : 0x1e9bd7 })); m.position.copy(p); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m);
+        const cr = CR.find(c => c.ref === s), dim = focus && focus !== s.name;
+        dyn.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: 0x3ddc84, transparent: true, opacity: dim ? .15 : on ? 1 : .85 })));
+        dyn.add(new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([cs[0], cs[1], cs[2], cs[0], cs[2], cs[3]]), new THREE.MeshBasicMaterial({ color: 0x3ddc84, transparent: true, opacity: dim ? .02 : on ? .16 : .07, side: THREE.DoubleSide })));
+        const m = new THREE.Mesh(new THREE.SphereGeometry(on ? .12 : .08, 12, 12), new THREE.MeshBasicMaterial({ color: on ? 0xffffff : 0xb8f5d0 })); m.position.copy(p); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m);
+        dyn.add(axes(p, [f, l, new THREE.Vector3().crossVectors(f, l)], on ? .6 : .4));
         if (focus === s.name && cr) cr.vis.forEach(v => { const st = S.stands[v.i]; dyn.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p, new THREE.Vector3(st.x, st.y, st.z[0])]), new THREE.LineDashedMaterial({ color: 0xe6edf5, dashSize: .2, gapSize: .12 })).computeLineDistances()); });
       }
     });
@@ -315,12 +321,12 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
       const nv = new THREE.Vector3(Math.cos(s.yaw * D2R), Math.sin(s.yaw * D2R), 0);
       dyn.add(new THREE.ArrowHelper(nv, new THREE.Vector3(s.x, s.y, .05), .9, on ? 0xffffff : 0x8a9bb0, .25, .18));
     });
-    BR.forEach(br => { const B = br.B, col = C3[ringState(br.rings)], on = isSel("stand", br.i);
-      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: on ? .6 : .38, side: THREE.DoubleSide }));
+    BR.forEach(br => { const B = br.B, col = 0xc9d6e6, on = isSel("stand", br.i);
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: on ? .5 : .3, side: THREE.DoubleSide }));
       pl.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...B.u), new THREE.Vector3(0, 0, 1), new THREE.Vector3(...B.n))); pl.position.set(...B.c); pl.userData = { kind: "stand", i: br.i }; dyn.add(pl); picks.push(pl);
       const ee = new THREE.LineSegments(new THREE.EdgesGeometry(pl.geometry), new THREE.LineBasicMaterial({ color: on ? 0xffffff : col })); ee.quaternion.copy(pl.quaternion); ee.position.copy(pl.position); dyn.add(ee);
       if (withPts) for (let k = 0; k < br.pts.length; k++) pts.push(br.pts[k]); });
-    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: .035 }))); }
+    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xff3b3b, size: .04 }))); }
     if (camSet !== key) { camSet = key; cam.position.set(cx - 15, cy - 14, 13); ctl.target.set(cx + 2, cy, 1.2); ctl.update(); }
   }
   function loop() { ctl.update(); rd.render(sc, cam); requestAnimationFrame(loop); }
