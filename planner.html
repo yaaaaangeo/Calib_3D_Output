@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SMOBI-Calib 거치대 배치 플래너</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* layout: toolbar · top-view canvas (drag stands) · per-camera verdict list; single dark look shared with the 3D viewer */
+:root {
+  --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
+  --sky: #1e9bd7; --warn: #e8b84a; --ok: #59d1a0; --bad: #ff7a7a; --stand: #c9d6e6;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-ui); }
+.wrap { max-width: 1320px; margin: 0 auto; padding-block: 14px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
+nav.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+nav.top a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
+nav.top a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+h1 { margin: 0; font-size: 20px; text-wrap: balance; }
+h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+select, button { font: 600 13px var(--f-ui); color: var(--fg); background: #182433; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+button:hover, select:hover { border-color: var(--sky); }
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible, select:focus-visible, a:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.sep { width: 1px; height: 24px; background: var(--line); }
+.main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-width: 0; display: grid; gap: 8px; }
+canvas { width: 100%; display: block; border-radius: 6px; background: #05090e; touch-action: none; cursor: grab; }
+.hint { font-size: 12px; color: var(--muted); }
+.sum { display: flex; flex-wrap: wrap; gap: 8px; }
+.sum > div { flex: 1 1 120px; background: #0e1620; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.sum .k { font-size: 12px; color: var(--muted); } .sum .v { font: 600 20px var(--f-mono); font-variant-numeric: tabular-nums; }
+.cams { display: grid; gap: 8px; }
+.cam { width: 100%; text-align: left; font: inherit; color: inherit; background: #0e1620; border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; cursor: pointer; }
+.cam[data-s="ok"] { border-left-color: var(--ok); } .cam[data-s="warn"] { border-left-color: var(--warn); } .cam[data-s="bad"] { border-left-color: var(--bad); }
+.cam[aria-pressed="true"] { border-color: var(--sky); }
+.cam .h { display: flex; justify-content: space-between; gap: 8px; font: 600 13px var(--f-mono); }
+.pill { font: 600 11px var(--f-ui); padding: 1px 8px; border-radius: 999px; }
+.pill.ok { background: rgba(89,209,160,.15); color: var(--ok); } .pill.warn { background: rgba(232,184,74,.15); color: var(--warn); } .pill.bad { background: rgba(255,122,122,.15); color: var(--bad); }
+.cam .row { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--muted); }
+.cam .row b { color: var(--fg); font-family: var(--f-mono); font-weight: 500; }
+.chip { font: 500 11px var(--f-mono); padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.chip.on { color: var(--sky); border-color: var(--sky); }
+.cam ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--warn); }
+.rules { font-size: 12px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 8px; }
+.rules b { color: var(--fg); }
+@media (max-width: 900px) { .main { grid-template-columns: minmax(0, 1fr); } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav class="top" aria-label="SMOBI-Calib 도구">
+    <h1>거치대 배치 플래너<small>룸에 가기 전에 거치대를 배치해 보고, 카메라마다 보드가 충분한지 미리 판정</small></h1>
+    <div class="bar"><a href="./">3D 뷰어</a><a href="./theory.html">투영 실험실</a><a href="./planner.html" aria-current="page">거치대 배치 플래너</a></div>
+  </nav>
+  <div class="bar">
+    <label for="veh" class="hint">차량</label><select id="veh"></select>
+    <span class="sep"></span>
+    <button id="add-t">+ 3단 타워</button><button id="add-s">+ 단독 보드</button><button id="del" disabled>선택 삭제</button>
+    <span class="sep"></span>
+    <button id="reset">기본 배치로</button><button id="copy">배치 좌표 복사</button><span class="hint" id="copied" role="status"></span>
+  </div>
+  <div class="main">
+    <div class="card">
+      <canvas id="cv" width="1200" height="820" aria-label="거치대 배치 Top View. 거치대를 드래그해 옮길 수 있음"></canvas>
+      <div class="hint">거치대를 드래그해 옮기세요 · 카메라 카드를 누르면 그 카메라 시야와 보이는 보드만 강조 · 1칸 = 1 m · 위쪽 = 차량 왼쪽</div>
+    </div>
+    <div class="card">
+      <div class="sum"><div><div class="k">기준 통과 카메라</div><div class="v" id="s-ok">–</div></div><div><div class="k">보드 수 (타워 = 3장)</div><div class="v" id="s-n">–</div></div><div><div class="k">거치대</div><div class="v" id="s-st">–</div></div></div>
+      <div class="cams" id="cams"></div>
+      <div class="rules"><b>판정 기준 (캘리브레이션 룸 신뢰도 검증 결과)</b><br>
+        · 카메라당 <b>보드 5장 이상</b> (6장이면 중앙 5 mm·0.1°, 3장이면 최악 2°)<br>
+        · 거리 <b>2~3 / 4~5 / 6 m+</b> 중 2구간 이상 섞기<br>
+        · 같은 간격으로 쌓은 타워만 쓰지 않기 (한 칸 밀림 오답) → 단독 보드 1장 이상<br>
+        · 보드가 화면 폭의 40% 이상에 퍼지게 (왜곡·렌즈 오류 확인)<br>
+        · 시야 거리 1.5~15 m만 계산 · 가림(occlusion)은 고려하지 않음</div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const VEH = {
+    fantag: { name: "판타G 버스 (fantaG_01 실측)", body: [-3.2, 8.0, 1.25],
+      cams: [["video1 전방좌", 7.72, 1.33, 1.3, 120], ["video2 전방우", 7.76, -1.28, 0.3, 120], ["video0 후방좌", 7.64, 1.30, 120.4, 120], ["video3 후방우", 7.69, -1.28, -117.8, 120], ["video5 후방중앙", -2.94, -0.12, 179.4, 120]],
+      st: [[12.61, 2.92, 3], [12.04, -1.85, 3], [10.04, 3.55, 1], [10.26, -2.67, 1], [6.7, 3.21, 3], [3.06, 3.61, 1], [7.16, -3.42, 3], [4.39, -2.66, 1], [-5.88, 1.92, 3], [-5.97, -2.08, 3]] },
+    eleccity: { name: "판타G Eleccity (실측)", body: [-3.3, 7.9, 1.25],
+      cams: [["top_center", 7.57, -0.05, -0.5, 54], ["bottom_center", 7.47, -0.09, -0.4, 128], ["left_front", 7.42, 1.25, 1.0, 128], ["right_front", 7.42, -1.33, 2.2, 128], ["left_rear", 7.31, 1.32, 129.6, 128], ["right_rear", 7.23, -1.30, -125.3, 128]],
+      st: [[11.1, 1.91, 3], [11.07, -2.11, 3], [8.84, 2.92, 1], [2.78, 2.54, 3], [4.2, -2.8, 2]] },
+    ioniq: { name: "아이오닉 (실측)", body: [-2.05, 2.6, 0.95],
+      cams: [["front", 1.35, 0, 0, 120], ["cam6", 1.6, 0.5, 9, 120], ["cam5", 1.6, -0.5, -14, 120], ["cam4", 2.2, 0.95, 90, 120], ["left", 1.0, 0.95, 90, 120], ["cam7", 2.2, -0.95, -90, 120], ["right", 1.0, -0.95, -90, 120], ["rear", -2.05, 0, 180, 120]],
+      st: [[0.23, 2.97, 1], [3.79, 2.6, 1], [5.85, 2.0, 3], [6.04, -2.0, 3], [3.72, -2.64, 1], [0.06, -3.36, 1]] },
+    carnival: { name: "E2E 카니발 (권장안)", body: [-2.58, 2.58, 1.0],
+      cams: [["전방 중앙", 1.3, 0, 0, 120], ["전방 ①", 0.9, 1.0, 10, 120], ["전방 ②", 0.9, -1.0, -10, 120], ["측방 ①", -0.3, 1.0, 90, 120], ["측방 ②", -0.3, -1.0, -90, 120], ["후방 중앙", -2.58, 0, 180, 120], ["후방 ①", -2.2, 1.0, 150, 120], ["후방 ②", -2.2, -1.0, -150, 120]],
+      st: [[4.0, 2.4, 1], [4.0, -2.4, 1], [6.5, 2.0, 3], [6.5, -2.0, 3], [9.5, 0.3, 1], [-5.0, 2.4, 1], [-5.0, -2.4, 1], [-7.3, 2.0, 3], [-7.3, -2.0, 3], [-10.0, -0.3, 1], [0.4, 4.0, 3], [-1.6, 3.2, 1], [1.6, 6.0, 1], [0.4, -4.0, 3], [-1.6, -3.2, 1], [1.6, -6.0, 1]] },
+    torres: { name: "토레스 (권장안)", body: [-0.95, 3.75, 0.95],
+      cams: [["앞유리 중앙", 2.04, -0.1, 0, 150], ["루프 좌측", 1.65, 0.64, 44, 150], ["루프 우측", 1.56, -0.55, -43, 150], ["좌측 후방", 2.32, 0.92, 120, 150], ["후면 중앙", -0.77, -0.02, 181, 150], ["우측 후방", 2.29, -0.9, -121, 150]],
+      st: [[5.4, 0, 1], [7.4, 2.0, 3], [7.4, -2.0, 3], [10.4, 0.3, 1], [4.4, 3.0, 1], [4.4, -3.0, 1], [6.4, 5.0, 1], [6.4, -5.0, 1], [-3.5, 0, 1], [-5.5, 2.0, 3], [-5.5, -2.0, 3], [-8.5, -0.3, 1], [-2.0, 3.3, 1], [-2.0, -3.3, 1], [-4.0, 5.2, 1], [-4.0, -5.2, 1]] }
+  };
+  const $ = id => document.getElementById(id), cv = $("cv"), g = cv.getContext("2d");
+  let key = "fantag", stands = [], sel = -1, focus = null, view = null, drag = null;
+  const KS = "smobi-planner-";
+  Object.entries(VEH).forEach(([k, v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.name; $("veh").appendChild(o); });
+  function load(k, fresh) {
+    key = k; $("veh").value = k; sel = -1; focus = null;
+    let saved = null; if (!fresh) { try { saved = JSON.parse(localStorage.getItem(KS + k) || "null"); } catch (e) { saved = null; } }
+    stands = (saved || VEH[k].st).map(s => ({ x: s[0] ?? s.x, y: s[1] ?? s.y, n: s[2] ?? s.n }));
+    fit(); update();
+  }
+  function save() { try { localStorage.setItem(KS + key, JSON.stringify(stands.map(s => [+s.x.toFixed(2), +s.y.toFixed(2), s.n]))); } catch (e) {} }
+  function fit() {
+    const v = VEH[key]; let xs = [v.body[0], v.body[1], ...stands.map(s => s.x)], ys = [v.body[2], -v.body[2], ...stands.map(s => s.y)];
+    const x0 = Math.min(...xs) - 3, x1 = Math.max(...xs) + 3, y0 = Math.min(...ys) - 3, y1 = Math.max(...ys) + 3;
+    const s = Math.min(cv.width / (x1 - x0), cv.height / (y1 - y0));
+    view = { s, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
+  }
+  const W2C = (x, y) => [cv.width / 2 + (x - view.cx) * view.s, cv.height / 2 - (y - view.cy) * view.s];
+  const C2W = (px, py) => [(px - cv.width / 2) / view.s + view.cx, -(py - cv.height / 2) / view.s + view.cy];
+  const wrap = a => ((a + 540) % 360) - 180;
+  function evaluate() {
+    return VEH[key].cams.map(([name, x, y, yaw, fov]) => {
+      const vis = [];
+      stands.forEach((s, i) => { const dx = s.x - x, dy = s.y - y, d = Math.hypot(dx, dy); const b = wrap(Math.atan2(dy, dx) * 180 / Math.PI - yaw);
+        if (Math.abs(b) <= fov / 2 && d >= 1.5 && d <= 15) vis.push({ i, d, b, n: s.n }); });
+      const n = vis.reduce((a, v) => a + v.n, 0);
+      const bands = [vis.some(v => v.d <= 3.5), vis.some(v => v.d > 3.5 && v.d <= 5.5), vis.some(v => v.d > 5.5)];
+      const spread = vis.length ? (Math.max(...vis.map(v => v.b)) - Math.min(...vis.map(v => v.b))) / fov : 0;
+      const stackOnly = vis.length > 0 && vis.every(v => v.n > 1);
+      const issues = [];
+      if (n < 5) issues.push(`보드 ${n}장 → ${5 - n}장 더 필요`);
+      if (bands.filter(Boolean).length < 2) issues.push("거리 구간 1개뿐 → 2~3 / 4~5 / 6 m+ 섞기");
+      if (stackOnly) issues.push("타워만 보임 → 단독 보드 1장 추가 (한 칸 밀림 방지)");
+      if (vis.length && spread < 0.4) issues.push(`화면의 ${Math.round(spread * 100)}%에만 몰림 → 가장자리 쪽에도 배치`);
+      const st = n < 3 ? "bad" : issues.length ? "warn" : "ok";
+      const acc = n >= 6 ? "중앙 약 5 mm · 0.1°" : n >= 5 ? "cm 이내 예상" : n >= 3 ? "cm급 · 최악 2°" : "풀이 불가/불안정";
+      return { name, x, y, yaw, fov, vis, n, bands, spread, issues, st, acc };
+    });
+  }
+  function update() {
+    const R = evaluate(); draw(R);
+    $("s-ok").textContent = `${R.filter(r => r.st === "ok").length} / ${R.length}`;
+    $("s-n").textContent = stands.reduce((a, s) => a + s.n, 0); $("s-st").textContent = stands.length;
+    $("del").disabled = sel < 0;
+    const box = $("cams"); box.innerHTML = "";
+    R.forEach(r => {
+      const b = document.createElement("button"); b.className = "cam"; b.dataset.s = r.st; b.setAttribute("aria-pressed", focus === r.name ? "true" : "false");
+      const lab = { ok: "통과", warn: "보완", bad: "부족" }[r.st];
+      b.innerHTML = `<div class="h">${r.name}<span class="pill ${r.st}">${lab}</span></div>
+        <div class="row"><span>보드 <b>${r.n}장</b></span><span>예상 <b>${r.acc}</b></span><span>화면 폭 <b>${Math.round(r.spread * 100)}%</b></span></div>
+        <div class="row">${["2~3 m", "4~5 m", "6 m+"].map((t, i) => `<span class="chip ${r.bands[i] ? "on" : ""}">${t}</span>`).join("")}</div>
+        ${r.issues.length ? `<ul>${r.issues.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}`;
+      b.onclick = () => { focus = focus === r.name ? null : r.name; update(); };
+      box.appendChild(b);
+    });
+  }
+  function draw(R) {
+    const v = VEH[key]; g.fillStyle = "#05090e"; g.fillRect(0, 0, cv.width, cv.height);
+    const [gx0, gy1] = C2W(0, 0), [gx1, gy0] = C2W(cv.width, cv.height);
+    g.lineWidth = 1;
+    for (let x = Math.floor(gx0); x <= gx1; x++) { const [a] = W2C(x, 0); g.strokeStyle = x % 5 ? "#141e29" : "#22303f"; g.beginPath(); g.moveTo(a, 0); g.lineTo(a, cv.height); g.stroke(); }
+    for (let y = Math.floor(gy0); y <= gy1; y++) { const [, b] = W2C(0, y); g.strokeStyle = y % 5 ? "#141e29" : "#22303f"; g.beginPath(); g.moveTo(0, b); g.lineTo(cv.width, b); g.stroke(); }
+    // fov wedges
+    R.forEach(r => {
+      const dim = focus && focus !== r.name; if (dim) return;
+      const col = { ok: "89,209,160", warn: "232,184,74", bad: "255,122,122" }[r.st];
+      const [cx, cy] = W2C(r.x, r.y), rr = 15 * view.s;
+      g.fillStyle = `rgba(${col},${focus ? .14 : .06})`; g.beginPath(); g.moveTo(cx, cy);
+      g.arc(cx, cy, rr, (-r.yaw - r.fov / 2) * Math.PI / 180, (-r.yaw + r.fov / 2) * Math.PI / 180); g.closePath(); g.fill();
+      if (focus) { g.strokeStyle = `rgba(${col},.9)`; g.setLineDash([6, 6]); r.vis.forEach(vv => { const [sx, sy] = W2C(stands[vv.i].x, stands[vv.i].y); g.beginPath(); g.moveTo(cx, cy); g.lineTo(sx, sy); g.stroke(); }); g.setLineDash([]);
+        [3.5, 5.5].forEach(d => { g.strokeStyle = "rgba(138,155,176,.35)"; g.beginPath(); g.arc(cx, cy, d * view.s, (-r.yaw - r.fov / 2) * Math.PI / 180, (-r.yaw + r.fov / 2) * Math.PI / 180); g.stroke(); }); }
+    });
+    // vehicle
+    const [bx0, by0] = W2C(v.body[0], v.body[2]), [bx1, by1] = W2C(v.body[1], -v.body[2]);
+    g.fillStyle = "rgba(95,122,153,.35)"; g.strokeStyle = "#8fa6c0"; g.lineWidth = 2; g.beginPath(); g.roundRect ? g.roundRect(bx0, by0, bx1 - bx0, by1 - by0, 10) : g.rect(bx0, by0, bx1 - bx0, by1 - by0); g.fill(); g.stroke();
+    g.fillStyle = "#8fa6c0"; g.font = "600 22px IBM Plex Sans KR, sans-serif"; g.textAlign = "center"; g.fillText("전방 →", (bx0 + bx1) / 2, (by0 + by1) / 2 + 8);
+    // cameras
+    R.forEach(r => { const [cx, cy] = W2C(r.x, r.y); const col = { ok: "#59d1a0", warn: "#e8b84a", bad: "#ff7a7a" }[r.st]; g.fillStyle = col; g.beginPath(); g.arc(cx, cy, 7, 0, 6.283); g.fill();
+      if (!focus || focus === r.name) { g.fillStyle = col; g.font = "500 17px IBM Plex Mono, monospace"; const a = r.yaw * Math.PI / 180; g.fillText(r.name, cx + Math.cos(a) * 34, cy - Math.sin(a) * 34 + 6); } });
+    // stands
+    stands.forEach((s, i) => { const [sx, sy] = W2C(s.x, s.y), sz = s.n > 1 ? 26 : 16; const seen = !focus || (R.find(r => r.name === focus).vis.some(vv => vv.i === i));
+      g.globalAlpha = seen ? 1 : .3; g.fillStyle = s.n > 1 ? "#1e9bd7" : "#c9d6e6"; g.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
+      if (i === sel) { g.strokeStyle = "#fff"; g.lineWidth = 3; g.strokeRect(sx - sz / 2 - 4, sy - sz / 2 - 4, sz + 8, sz + 8); }
+      if (s.n > 1) { g.fillStyle = "#fff"; g.font = "700 14px IBM Plex Mono, monospace"; g.fillText("×" + s.n, sx, sy + 5); }
+      g.globalAlpha = 1; });
+    g.textAlign = "start";
+  }
+  function pos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; }
+  cv.addEventListener("pointerdown", e => { const [px, py] = pos(e); let best = -1, bd = 30; stands.forEach((s, i) => { const [sx, sy] = W2C(s.x, s.y); const d = Math.hypot(sx - px, sy - py); if (d < bd) { bd = d; best = i; } });
+    sel = best; if (best >= 0) { drag = best; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; } update(); });
+  cv.addEventListener("pointermove", e => { if (drag === null) return; const [px, py] = pos(e); const [x, y] = C2W(px, py); stands[drag].x = Math.round(x * 10) / 10; stands[drag].y = Math.round(y * 10) / 10; update(); });
+  const end = () => { if (drag !== null) { drag = null; cv.style.cursor = "grab"; save(); } };
+  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
+  function add(n) { const [x, y] = [view.cx + 4, view.cy + (Math.random() - .5) * 2]; stands.push({ x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, n }); sel = stands.length - 1; save(); update(); }
+  $("add-t").onclick = () => add(3); $("add-s").onclick = () => add(1);
+  $("del").onclick = () => { if (sel >= 0) { stands.splice(sel, 1); sel = -1; save(); update(); } };
+  $("reset").onclick = () => { try { localStorage.removeItem(KS + key); } catch (e) {} load(key, true); };
+  $("veh").onchange = e => { location.hash = e.target.value; };
+  $("copy").onclick = () => { const t = `${VEH[key].name} 거치대 (x 전방, y 좌측, m)\n` + stands.map((s, i) => `${i + 1}. ${s.n > 1 ? s.n + "단 타워" : "단독 보드"}  x=${s.x.toFixed(1)}  y=${s.y.toFixed(1)}`).join("\n");
+    const done = m => { $("copied").textContent = m; setTimeout(() => $("copied").textContent = "", 2500); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => done("복사됨"), () => done("복사 실패: 브라우저가 막음")); else done("복사 미지원"); };
+  window.addEventListener("keydown", e => { if ((e.key === "Delete" || e.key === "Backspace") && sel >= 0 && e.target === document.body) { stands.splice(sel, 1); sel = -1; save(); update(); } });
+  function route() { const k = (location.hash || "").slice(1); load(VEH[k] ? k : "fantag"); }
+  window.addEventListener("hashchange", route); route();
+})();
+</script>
+</body>
+</html>
