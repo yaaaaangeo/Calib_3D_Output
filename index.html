@@ -15,10 +15,11 @@
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); }
 .app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; gap: 10px; box-sizing: border-box; }
-header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+header { display: grid; gap: 10px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 18px; }
 .brand { font-weight: 700; letter-spacing: .02em; }
 .brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; }
-.links { display: flex; gap: 6px; margin-left: auto; flex-wrap: wrap; }
+.links { display: flex; gap: 6px; flex-wrap: wrap; }
 .links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
 .links a:hover { color: var(--fg); border-color: var(--sky); }
 .links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
@@ -59,9 +60,9 @@ aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; le
 </style>
 <div class="app">
   <header>
-    <div class="brand">SMOBI-Calib 3D Viewer<small>카메라–LiDAR 캘리브레이션 결과를 3D 공간에서 보기</small></div>
+    <div class="hrow"><div class="brand">SMOBI-Calib 3D Viewer<small>카메라–LiDAR 캘리브레이션 결과를 3D 공간에서 보기</small></div>
+      <div class="links"><a href="./planner.html">거치대 배치 플래너</a><a href="./" aria-current="page">3D 뷰어</a></div></div>
     <nav class="tabs" role="tablist" id="tabs"></nav>
-    <div class="links"><a href="./planner.html">거치대 배치 플래너</a><a href="./" aria-current="page">3D 뷰어</a></div>
   </header>
   <main>
     <div class="stage" id="stage">

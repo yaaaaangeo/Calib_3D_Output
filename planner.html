@@ -7,10 +7,10 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* layout: toolbar · [top view | 3D view] · [camera verdicts | selected stand + height guide]; single dark look shared with the 3D viewer */
+/* layout: header (title | page nav) · toolbar · [3D scene | selection editor] · camera verdicts; single dark look shared with the 3D viewer */
 :root {
   --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
-  --sky: #1e9bd7; --warn: #e8b84a; --ok: #59d1a0; --bad: #ff7a7a;
+  --sky: #1e9bd7; --warn: #e8b84a; --ok: #59d1a0; --bad: #ff7a7a; --lidar: #7fe0c4;
   --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
   color-scheme: dark;
 }
@@ -18,36 +18,56 @@
 html, body { margin: 0; }
 body { background: var(--bg); color: var(--fg); font: 14px/1.5 var(--f-ui); }
 .wrap { max-width: 1440px; margin: 0 auto; padding-block: 14px 28px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 12px; }
-nav.top { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
-nav.top a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; }
-nav.top a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+.hrow { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; }
+.links { display: flex; gap: 6px; flex-wrap: wrap; }
+.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+.links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
 h1 { margin: 0; font-size: 20px; text-wrap: balance; }
 h1 small { display: block; font-size: 13px; font-weight: 400; color: var(--muted); }
 .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-select, button { font: 600 13px var(--f-ui); color: var(--fg); background: #182433; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+select, button, input[type=number] { font: 600 13px var(--f-ui); color: var(--fg); background: #182433; border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+button, select { cursor: pointer; }
 button:hover, select:hover { border-color: var(--sky); }
 button:disabled { opacity: .4; cursor: default; }
+button.pri { background: var(--sky); border-color: var(--sky); color: #fff; }
+button.danger:hover { border-color: var(--bad); color: var(--bad); }
 button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
 .sep { width: 1px; height: 24px; background: var(--line); }
 .hint { font-size: 12px; color: var(--muted); }
-.views { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; align-items: start; }
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px; min-width: 0; display: grid; gap: 8px; align-content: start; }
 .card h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
-canvas { width: 100%; display: block; border-radius: 6px; background: #05090e; touch-action: none; }
-#cv { cursor: grab; aspect-ratio: 1200 / 860; }
-#g3 { aspect-ratio: 1200 / 860; }
-.veh { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-.veh input[type=range] { width: 160px; accent-color: var(--sky); }
-.veh output { font: 12px var(--f-mono); min-width: 52px; }
-.lower { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 12px; align-items: start; }
+.stage { position: relative; }
+#g3 { width: 100%; display: block; border-radius: 6px; background: #05090e; aspect-ratio: 16 / 10; touch-action: none; }
+.tip { position: absolute; left: 10px; top: 10px; font-size: 12px; color: var(--muted); background: rgba(5,9,14,.7); padding: 4px 8px; border-radius: 6px; pointer-events: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.ed { display: grid; gap: 8px; }
+.ed h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ed h3 span { font: 500 12px var(--f-mono); color: var(--muted); }
+.f { display: grid; grid-template-columns: 72px minmax(0, 1fr) 76px; gap: 8px; align-items: center; font-size: 13px; }
+.f input[type=range] { width: 100%; accent-color: var(--sky); }
+.f input[type=number] { width: 100%; padding: 4px 6px; font: 500 12px var(--f-mono); }
+.f select { width: 100%; grid-column: 2 / 4; }
+.row2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.sensors { display: flex; flex-wrap: wrap; gap: 6px; }
+.chipb { font: 500 12px var(--f-mono); padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); background: #0e1620; color: var(--fg); cursor: pointer; }
+.chipb.scam { color: var(--sky); } .chipb.slid { color: var(--lidar); }
+.chipb[aria-pressed="true"] { border-color: #fff; }
+.guide { display: grid; gap: 3px; }
+.gbar { display: grid; grid-template-columns: 48px minmax(0, 1fr) 46px; gap: 8px; align-items: center; font: 12px var(--f-mono); color: var(--muted); }
+.gbar .tr { height: 10px; background: #0e1620; border-radius: 3px; overflow: hidden; }
+.gbar .fl { height: 100%; background: var(--sky); }
+.gbar.best { color: var(--fg); } .gbar.best .fl { background: var(--ok); }
+.gbar.cur { color: var(--warn); }
 .sum { display: flex; flex-wrap: wrap; gap: 8px; }
 .sum > div { flex: 1 1 110px; background: #0e1620; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
 .sum .k { font-size: 12px; color: var(--muted); } .sum .v { font: 600 20px var(--f-mono); font-variant-numeric: tabular-nums; }
-.cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 8px; }
-.cam { width: 100%; text-align: left; font: inherit; color: inherit; background: #0e1620; border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; cursor: pointer; }
+.cams { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 8px; }
+.cam { width: 100%; text-align: left; font: inherit; color: inherit; background: #0e1620; border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px; padding: 8px 10px; display: grid; gap: 4px; align-content: start; cursor: pointer; }
 .cam[data-s="ok"] { border-left-color: var(--ok); } .cam[data-s="warn"] { border-left-color: var(--warn); } .cam[data-s="bad"] { border-left-color: var(--bad); }
 .cam[aria-pressed="true"] { border-color: var(--sky); }
-.cam .h { display: flex; justify-content: space-between; gap: 8px; font: 600 13px var(--f-mono); }
+.cam .h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font: 600 13px var(--f-mono); }
 .pill { font: 600 11px var(--f-ui); padding: 1px 8px; border-radius: 999px; }
 .pill.ok { background: rgba(89,209,160,.15); color: var(--ok); } .pill.warn { background: rgba(232,184,74,.15); color: var(--warn); } .pill.bad { background: rgba(255,122,122,.15); color: var(--bad); }
 .cam .row { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--muted); }
@@ -55,144 +75,141 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #05090e; t
 .chip { font: 500 11px var(--f-mono); padding: 0 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
 .chip.on { color: var(--sky); border-color: var(--sky); }
 .cam ul { margin: 0; padding-left: 18px; font-size: 12px; color: var(--warn); }
-.guide { display: grid; gap: 4px; }
-.gbar { display: grid; grid-template-columns: 52px minmax(0, 1fr) 54px; gap: 8px; align-items: center; font: 12px var(--f-mono); color: var(--muted); }
-.gbar .tr { height: 12px; background: #0e1620; border-radius: 3px; overflow: hidden; }
-.gbar .fl { height: 100%; background: var(--sky); }
-.gbar.best { color: var(--fg); } .gbar.best .fl { background: var(--ok); }
-.gbar.cur { color: var(--warn); }
-.boards { display: grid; gap: 6px; }
-.brd { display: grid; grid-template-columns: 64px minmax(0, 1fr) 70px; gap: 8px; align-items: center; font-size: 12px; }
-.brd input[type=range] { width: 100%; accent-color: var(--sky); }
 .rules { font-size: 12px; color: var(--muted); line-height: 1.6; border-top: 1px solid var(--line); padding-top: 8px; }
 .rules b { color: var(--fg); }
-.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
-@media (max-width: 980px) { .views, .lower { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1000px) { .main { grid-template-columns: minmax(0, 1fr); } }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <nav class="top" aria-label="SMOBI-Calib 도구">
-    <h1>거치대 배치 플래너<small>룸에 가기 전에 차량·거치대를 배치해 보고, 카메라와 라이다 기준으로 미리 판정</small></h1>
-    <div class="bar"><a href="./planner.html" aria-current="page">거치대 배치 플래너</a><a href="./">3D 뷰어</a></div>
-  </nav>
+  <div class="hrow">
+    <h1>거치대 배치 플래너<small>룸에 가기 전에 차량·센서·캘판을 배치해 보고, 카메라와 라이다 기준으로 미리 판정</small></h1>
+    <nav class="links" aria-label="SMOBI-Calib 도구"><a href="./planner.html" aria-current="page">거치대 배치 플래너</a><a href="./">3D 뷰어</a></nav>
+  </div>
   <div class="bar">
     <label for="veh" class="hint">차량</label><select id="veh"></select>
     <span class="sep"></span>
-    <button id="add-t">+ 3단 캘판</button><button id="add-h">+ 농구골대</button><button id="add-m">+ 미니농구골대</button><button id="del" disabled>선택 삭제</button>
+    <span class="hint">캘판</span><button id="add-t">+ 3단 캘판</button><button id="add-h">+ 농구골대</button><button id="add-m">+ 미니농구골대</button>
+    <span class="sep"></span>
+    <span class="hint">센서</span><button id="add-c">+ 카메라</button><button id="add-l">+ 라이다</button>
     <span class="sep"></span>
     <button id="reset">기본 배치로</button><button id="copy">배치 좌표 복사</button><span class="hint" id="copied" role="status"></span>
   </div>
-  <div class="views">
+  <div class="main">
     <div class="card">
-      <h2>위에서 보기 (Top View)<span class="hint">거치대·차량 드래그 · 1칸 = 1 m</span></h2>
-      <canvas id="cv" width="1200" height="860" aria-label="거치대 배치 Top View. 거치대와 차량을 드래그해 옮길 수 있음"></canvas>
-      <div class="veh">
-        <span class="hint">차량 위치</span>
-        <button data-mv="0,1" aria-label="차량 왼쪽으로">↑</button><button data-mv="0,-1" aria-label="차량 오른쪽으로">↓</button><button data-mv="-1,0" aria-label="차량 뒤로">←</button><button data-mv="1,0" aria-label="차량 앞으로">→</button>
-        <span class="sep"></span>
-        <label for="rot" class="hint">회전</label><button id="rl" aria-label="왼쪽으로 5도 회전">⟲ 5°</button><input type="range" id="rot" min="-180" max="180" step="1" value="0"><button id="rr" aria-label="오른쪽으로 5도 회전">⟳ 5°</button><output id="rot-o" for="rot">0°</output>
-        <button id="vreset">차량 원위치</button>
+      <div class="stage">
+        <canvas id="g3" width="1280" height="800" aria-label="차량, 센서, 캘판 3D 배치. 클릭해서 선택하고 드래그해서 옮길 수 있음"></canvas>
+        <div class="tip">클릭 = 선택 · 선택한 것을 드래그 = 이동 · 빈 곳 드래그 = 시점 회전 · 휠 = 확대</div>
       </div>
+      <div class="legend"><span><i style="background:#59d1a0"></i>라이다 라인 10줄+</span><span><i style="background:#e8b84a"></i>5~9줄</span><span><i style="background:#ff7a7a"></i>5줄 미만</span><span><i style="background:#fff"></i>보드에 맞은 라이다 점</span><span><i style="background:#7fe0c4"></i>라이다</span><span><i style="background:#1e9bd7"></i>카메라 시야</span></div>
     </div>
     <div class="card">
-      <h2>3D 보기 (라이다 라인이 보드에 맞는 모습)<span class="hint">드래그 회전 · 휠/핀치 확대</span></h2>
-      <canvas id="g3" width="1200" height="860" aria-label="거치대와 라이다 스캔 라인 3D 보기"></canvas>
-      <div class="legend"><span><i style="background:#59d1a0"></i>라이다 라인 10줄+</span><span><i style="background:#e8b84a"></i>5~9줄</span><span><i style="background:#ff7a7a"></i>5줄 미만</span><span><i style="background:#ffffff"></i>보드에 맞은 라이다 점</span><span><i style="background:#7fe0c4"></i>라이다</span><span><i style="background:#1e9bd7"></i>카메라</span></div>
+      <h2>선택<span class="hint" id="sel-kind">없음</span></h2>
+      <div class="ed" id="ed"></div>
+      <h2>장착 센서<span class="hint">눌러서 편집</span></h2>
+      <div class="sensors" id="sensors"></div>
     </div>
   </div>
-  <div class="lower">
-    <div class="card">
-      <div class="sum"><div><div class="k">기준 통과 카메라</div><div class="v" id="s-ok">–</div></div><div><div class="k">라이다로 보이는 보드</div><div class="v" id="s-n">–</div></div><div><div class="k">거치대</div><div class="v" id="s-st">–</div></div></div>
-      <div class="cams" id="cams"></div>
-    </div>
-    <div class="card">
-      <h2 id="sel-h">선택한 거치대</h2>
-      <div id="sel-body" class="hint">Top View에서 거치대를 누르면 보드 높이를 바꾸고, 그 위치에서 어떤 높이가 라이다에 잘 잡히는지 볼 수 있습니다.</div>
-      <div class="rules"><b>판정 기준</b><br>
-        · 라이다 라인 <b>5줄 이상</b> 맞는 보드만 사용 가능으로 계산 (10줄 이상 권장 – 구멍 4개 검출)<br>
-        · 카메라당 사용 가능한 <b>보드 5장 이상</b> (6장: 중앙 5 mm·0.1°, 3장: 최악 2°)<br>
-        · 거리 <b>2~3 / 4~5 / 6 m+</b> 중 2구간 이상 · 타워만 보이면 단독 보드 추가 · 화면 폭 40% 이상<br>
-        · 라이다 채널 배치는 사양 기반 근사 (OT128 −25~+15°, QT128 −52.6~+52.6°) · 가림은 고려하지 않음</div>
-    </div>
+  <div class="card">
+    <div class="sum"><div><div class="k">기준 통과 카메라</div><div class="v" id="s-ok">–</div></div><div><div class="k">라이다로 보이는 보드</div><div class="v" id="s-n">–</div></div><div><div class="k">캘판</div><div class="v" id="s-st">–</div></div></div>
+    <div class="cams" id="cams"></div>
+    <div class="rules"><b>판정 기준</b> · 라이다 라인 <b>5줄 이상</b> 맞는 보드만 사용 (10줄 이상 권장) · 카메라당 사용 가능 <b>보드 5장 이상</b> (6장: 중앙 5 mm·0.1°, 3장: 최악 2°) · 거리 <b>2~3 / 4~5 / 6 m+</b> 중 2구간 이상 · 타워만 보이면 단독 보드 추가 · 화면 폭 40% 이상 · 보드가 카메라를 70° 넘게 비껴 보면 제외 · 라이다 채널 배치는 사양 기반 근사 · 가림은 고려하지 않음</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
 (function () {
-  const D2R = Math.PI / 180;
-  // ---------- lidar models (vertical channel angles, deg) ----------
+  const D2R = Math.PI / 180, $ = id => document.getElementById(id);
+  // ---------- LiDAR channel models ----------
+  const uni = (n, a, b) => Array.from({ length: n }, (_, i) => a + i * (b - a) / (n - 1));
   function ot128() { const a = []; for (let i = 0; i < 32; i++) a.push(-25 + i * (19 / 32)); for (let i = 0; i < 64; i++) a.push(-6 + i * (8 / 64)); for (let i = 0; i < 32; i++) a.push(2 + (i + 1) * (13 / 32)); return a; }
-  function qt128() { const a = []; for (let i = 0; i < 128; i++) a.push(-52.6 + i * (105.2 / 127)); return a; }
-  const MODEL = {}; [["OT128", ot128()], ["QT128", qt128()]].forEach(([k, a]) => { MODEL[k] = a.map(e => [Math.cos(e * D2R), Math.sin(e * D2R)]); });
+  const LMODEL = {
+    VLP16: { label: "16채널 (±15°)", el: uni(16, -15, 15) },
+    C32: { label: "32채널 (−25~+15°)", el: uni(32, -25, 15) },
+    C64: { label: "64채널 (±22.5°)", el: uni(64, -22.5, 22.5) },
+    OT128: { label: "128채널 OT128 (−25~+15°)", el: ot128() },
+    QT128: { label: "128채널 QT128 (±52.6°)", el: uni(128, -52.6, 52.6) }
+  };
+  Object.values(LMODEL).forEach(m => { m.cs = m.el.map(e => [Math.cos(e * D2R), Math.sin(e * D2R)]); });
+  const HFOVS = [54, 60, 90, 120, 128.7, 150, 190];
   const TOWER = [1.0, 1.95, 2.9];
-  // vehicle-local: x fwd, y left, z up (ground = 0). lidar: [name, model, x, y, z, roll, pitch, yaw(deg)]
-  const FANTAG_LIDAR = [["OT128 좌", "OT128", 7.75, 1.23, 2.88, 0.6, 1.1, 127.0], ["OT128 우", "OT128", 7.78, -1.20, 2.90, -0.7, -0.7, 54.5],
-    ["QT128 좌", "QT128", 7.86, 1.28, 1.05, -3.8, 3.7, 166.7], ["QT128 우", "QT128", 7.90, -1.22, 1.04, -2.5, -3.5, 13.3], ["QT128 후방", "QT128", -2.98, -0.19, 1.09, 4.3, 0.5, -88.8]];
-  const VEH = {
-    fantag: { name: "판타G 버스 (fantaG_01 실측)", body: [-3.2, 8.0, 1.25, 3.2], lidar: FANTAG_LIDAR, lnote: "라이다 5대 실제 장착값",
-      cams: [["video1 전방좌", 7.72, 1.33, 1.3, 120], ["video2 전방우", 7.76, -1.28, 0.3, 120], ["video0 후방좌", 7.64, 1.30, 120.4, 120], ["video3 후방우", 7.69, -1.28, -117.8, 120], ["video5 후방중앙", -2.94, -0.12, 179.4, 120]],
+  // ---------- presets (vehicle-local: x fwd, y left, z up; ground = 0) ----------
+  const FL = [["OT128 좌", "OT128", 7.75, 1.23, 2.88, 0.6, 1.1, 127.0], ["OT128 우", "OT128", 7.78, -1.20, 2.90, -0.7, -0.7, 54.5], ["QT128 좌", "QT128", 7.86, 1.28, 1.05, -3.8, 3.7, 166.7], ["QT128 우", "QT128", 7.90, -1.22, 1.04, -2.5, -3.5, 13.3], ["QT128 후방", "QT128", -2.98, -0.19, 1.09, 4.3, 0.5, -88.8]];
+  const PRE = {
+    fantag: { name: "판타G 버스 (fantaG_01 실측)", body: [-3.2, 8.0, 1.25, 3.2], lidar: FL,
+      cams: [["video1 전방좌", 7.72, 1.33, 2.31, 1.3, 120], ["video2 전방우", 7.76, -1.28, 2.25, 0.3, 120], ["video0 후방좌", 7.64, 1.30, 2.29, 120.4, 120], ["video3 후방우", 7.69, -1.28, 2.19, -117.8, 120], ["video5 후방중앙", -2.94, -0.12, 1.72, 179.4, 120]],
       st: [[12.61, 2.92, "t"], [12.04, -1.85, "t"], [10.04, 3.55, 2.77], [10.26, -2.67, 2.77], [6.7, 3.21, "t"], [3.06, 3.61, 1.45], [7.16, -3.42, "t"], [4.39, -2.66, 1.51], [-5.88, 1.92, "t"], [-5.97, -2.08, "t"]] },
-    eleccity: { name: "판타G Eleccity (실측)", body: [-3.3, 7.9, 1.25, 3.2], lidar: FANTAG_LIDAR, lnote: "라이다 배치는 판타G와 같다고 가정",
-      cams: [["top_center", 7.57, -0.05, -0.5, 54], ["bottom_center", 7.47, -0.09, -0.4, 128], ["left_front", 7.42, 1.25, 1.0, 128], ["right_front", 7.42, -1.33, 2.2, 128], ["left_rear", 7.31, 1.32, 129.6, 128], ["right_rear", 7.23, -1.30, -125.3, 128]],
+    eleccity: { name: "판타G Eleccity (실측 · 라이다는 판타G 가정)", body: [-3.3, 7.9, 1.25, 3.2], lidar: FL,
+      cams: [["top_center", 7.57, -0.05, 2.18, -0.5, 54], ["bottom_center", 7.47, -0.09, 2.22, -0.4, 128.7], ["left_front", 7.42, 1.25, 2.75, 1.0, 128.7], ["right_front", 7.42, -1.33, 2.74, 2.2, 128.7], ["left_rear", 7.31, 1.32, 2.73, 129.6, 128.7], ["right_rear", 7.23, -1.30, 2.75, -125.3, 128.7]],
       st: [[11.1, 1.91, "t"], [11.07, -2.11, "t"], [8.84, 2.92, 2.76], [2.78, 2.54, "t"], [4.2, -2.8, 1.8]] },
-    ioniq: { name: "아이오닉 (실측)", body: [-2.05, 2.6, 0.95, 1.6], lidar: [["Hesai 128ch", "OT128", 0, 0, 2.1, 0, 0, 0]], lnote: "루프 라이다 1대 (128ch 가정)",
-      cams: [["front", 1.35, 0, 0, 120], ["cam6", 1.6, 0.5, 9, 120], ["cam5", 1.6, -0.5, -14, 120], ["cam4", 2.2, 0.95, 90, 120], ["left", 1.0, 0.95, 90, 120], ["cam7", 2.2, -0.95, -90, 120], ["right", 1.0, -0.95, -90, 120], ["rear", -2.05, 0, 180, 120]],
+    ioniq: { name: "아이오닉 (실측 · 라이다 128ch 가정)", body: [-2.05, 2.6, 0.95, 1.6], lidar: [["Hesai 128ch", "OT128", 0, 0, 2.1, 0, 0, 0]],
+      cams: [["front", 1.35, 0, 1.2, 0, 120], ["cam6", 1.6, 0.5, 1.2, 9, 120], ["cam5", 1.6, -0.5, 1.2, -14, 120], ["cam4", 2.2, 0.95, 1.0, 90, 120], ["left", 1.0, 0.95, 1.0, 90, 120], ["cam7", 2.2, -0.95, 1.0, -90, 120], ["right", 1.0, -0.95, 1.0, -90, 120], ["rear", -2.05, 0, 1.0, 180, 120]],
       st: [[0.23, 2.97, 1.2], [3.79, 2.6, 2.3], [5.85, 2.0, "t"], [6.04, -2.0, "t"], [3.72, -2.64, 2.3], [0.06, -3.36, 1.3]] },
-    carnival: { name: "E2E 카니발 (권장안)", body: [-2.58, 2.58, 1.0, 1.8], lidar: [["루프 라이다", "OT128", 0, 0, 2.1, 0, 0, 0]], lnote: "루프 128ch 1대 가정",
-      cams: [["전방 중앙", 1.3, 0, 0, 120], ["전방 ①", 0.9, 1.0, 10, 120], ["전방 ②", 0.9, -1.0, -10, 120], ["측방 ①", -0.3, 1.0, 90, 120], ["측방 ②", -0.3, -1.0, -90, 120], ["후방 중앙", -2.58, 0, 180, 120], ["후방 ①", -2.2, 1.0, 150, 120], ["후방 ②", -2.2, -1.0, -150, 120]],
+    carnival: { name: "E2E 카니발 (권장안 · 라이다 가정)", body: [-2.58, 2.58, 1.0, 1.8], lidar: [["루프 라이다", "OT128", 0, 0, 2.1, 0, 0, 0]],
+      cams: [["전방 중앙", 1.3, 0, 1.4, 0, 120], ["전방 ①", 0.9, 1.0, 1.0, 10, 120], ["전방 ②", 0.9, -1.0, 1.0, -10, 120], ["측방 ①", -0.3, 1.0, 1.0, 90, 120], ["측방 ②", -0.3, -1.0, 1.0, -90, 120], ["후방 중앙", -2.58, 0, 1.2, 180, 120], ["후방 ①", -2.2, 1.0, 1.0, 150, 120], ["후방 ②", -2.2, -1.0, 1.0, -150, 120]],
       st: [[4.0, 2.4, 1.6], [4.0, -2.4, 1.6], [6.5, 2.0, "t"], [6.5, -2.0, "t"], [9.5, 0.3, 2.6], [-5.0, 2.4, 1.6], [-5.0, -2.4, 1.6], [-7.3, 2.0, "t"], [-7.3, -2.0, "t"], [-10.0, -0.3, 2.6], [0.4, 4.0, "t"], [-1.6, 3.2, 1.6], [1.6, 6.0, 2.6], [0.4, -4.0, "t"], [-1.6, -3.2, 1.6], [1.6, -6.0, 2.6]] },
-    torres: { name: "토레스 (권장안)", body: [-0.95, 3.75, 0.95, 1.7], lnote: "ot128 + qt128 좌/우 실제 장착값",
+    torres: { name: "토레스 (권장안 · 센서 실측)", body: [-0.95, 3.75, 0.95, 1.7],
       lidar: [["ot128", "OT128", 1.037, -0.012, 1.954, -0.9, -0.24, 89.96], ["qt128_left", "QT128", 1.018, 0.517, 1.758, 12.59, 0.86, 179.79], ["qt128_right", "QT128", 1.025, -0.544, 1.746, 13.66, -0.71, 1.25]],
-      cams: [["앞유리 중앙", 2.04, -0.1, 0, 150], ["루프 좌측", 1.65, 0.64, 44, 150], ["루프 우측", 1.56, -0.55, -43, 150], ["좌측 후방", 2.32, 0.92, 120, 150], ["후면 중앙", -0.77, -0.02, 181, 150], ["우측 후방", 2.29, -0.9, -121, 150]],
+      cams: [["앞유리 중앙", 2.04, -0.1, 1.34, 0, 150], ["루프 좌측", 1.65, 0.64, 1.62, 44, 150], ["루프 우측", 1.56, -0.55, 1.59, -43, 150], ["좌측 후방", 2.32, 0.92, 0.77, 120, 150], ["후면 중앙", -0.77, -0.02, 1.46, 181, 150], ["우측 후방", 2.29, -0.9, 0.74, -121, 150]],
       st: [[5.4, 0, 1.6], [7.4, 2.0, "t"], [7.4, -2.0, "t"], [10.4, 0.3, 2.6], [4.4, 3.0, 1.6], [4.4, -3.0, 1.6], [6.4, 5.0, 2.6], [6.4, -5.0, 2.6], [-3.5, 0, 1.6], [-5.5, 2.0, "t"], [-5.5, -2.0, "t"], [-8.5, -0.3, 2.6], [-2.0, 3.3, 1.6], [-2.0, -3.3, 1.6], [-4.0, 5.2, 2.6], [-4.0, -5.2, 2.6]] }
   };
-  const $ = id => document.getElementById(id), cv = $("cv"), g = cv.getContext("2d");
-  let key = "fantag", stands = [], pose = { x: 0, y: 0, yaw: 0 }, sel = -1, focus = null, view = null, drag = null, R = null, BR = null;
-  const KS = "smobi-planner2-";
-  Object.entries(VEH).forEach(([k, v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.name; $("veh").appendChild(o); });
-  const mkStand = s => ({ x: s[0], y: s[1], z: s[2] === "t" ? TOWER.slice() : [s[2]] });
-  function load(k, fresh) {
-    key = k; $("veh").value = k; sel = -1; focus = null;
-    let saved = null; if (!fresh) { try { saved = JSON.parse(localStorage.getItem(KS + k) || "null"); } catch (e) { saved = null; } }
-    if (saved) { stands = saved.st; pose = saved.pose; } else { stands = VEH[k].st.map(mkStand); pose = { x: 0, y: 0, yaw: 0 }; }
-    syncRot(); fit(); update(true);
+  // ---------- state ----------
+  let key = "fantag", S = null, sel = null, focus = null, BR = [], CR = [];
+  const KS = "smobi-planner3-";
+  Object.entries(PRE).forEach(([k, v]) => { const o = document.createElement("option"); o.value = k; o.textContent = v.name; $("veh").appendChild(o); });
+  const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100;
+  function fresh(k) {
+    const p = PRE[k];
+    const sensors = p.cams.map(([n, x, y, z, yaw, h]) => ({ kind: "cam", name: n, x, y, z, yaw, pitch: 0, hfov: h }))
+      .concat(p.lidar.map(([n, m, x, y, z, ro, pi, yw]) => ({ kind: "lid", name: n, model: m, x, y, z, roll: ro, pitch: pi, yaw: yw })));
+    sensors.forEach(s => { s.o = { ...s }; delete s.o.o; });
+    const stands = p.st.map(([x, y, z]) => ({ x, y, yaw: null, z: z === "t" ? TOWER.slice() : [z] }));
+    const st = { pose: { x: 0, y: 0, yaw: 0 }, sensors, stands, body: p.body.slice() };
+    st.stands.forEach(s => { s.yaw = faceYaw(st, s.x, s.y); s.o = { x: s.x, y: s.y, yaw: s.yaw }; });
+    return st;
   }
-  function save() { try { localStorage.setItem(KS + key, JSON.stringify({ st: stands, pose })); } catch (e) {} }
+  function load(k, reset) {
+    key = k; $("veh").value = k; sel = null; focus = null;
+    let saved = null; if (!reset) { try { saved = JSON.parse(localStorage.getItem(KS + k) || "null"); } catch (e) { saved = null; } }
+    S = saved && saved.sensors ? saved : fresh(k);
+    camSet = null; refresh();
+  }
+  function save() { try { localStorage.setItem(KS + key, JSON.stringify(S)); } catch (e) {} }
   // ---------- geometry ----------
-  const toW = (lx, ly) => { const c = Math.cos(pose.yaw * D2R), s = Math.sin(pose.yaw * D2R); return [pose.x + c * lx - s * ly, pose.y + s * lx + c * ly]; };
+  const toW = (st, lx, ly) => { const c = Math.cos(st.pose.yaw * D2R), s = Math.sin(st.pose.yaw * D2R); return [st.pose.x + c * lx - s * ly, st.pose.y + s * lx + c * ly]; };
+  const vehCenter = st => toW(st, (st.body[0] + st.body[1]) / 2, 0);
+  function faceYaw(st, x, y) {
+    // face the mean of the cameras that can see this spot; fall back to the vehicle centre
+    const cams = st.sensors.filter(s => s.kind === "cam").map(s => { const [wx, wy] = toW(st, s.x, s.y); return { x: wx, y: wy, yaw: s.yaw + st.pose.yaw, h: s.hfov }; })
+      .filter(c => { const d = Math.hypot(x - c.x, y - c.y), b = Math.abs(wrap(Math.atan2(y - c.y, x - c.x) / D2R - c.yaw)); return d >= 1.5 && d <= 15 && b <= c.h / 2; });
+    let tx, ty; if (cams.length) { tx = cams.reduce((a, c) => a + c.x, 0) / cams.length; ty = cams.reduce((a, c) => a + c.y, 0) / cams.length; } else [tx, ty] = vehCenter(st);
+    return Math.round(Math.atan2(ty - y, tx - x) / D2R);
+  }
   function rotM(r, p, y) { r *= D2R; p *= D2R; y *= D2R; const [cr, sr, cp, sp, cy, sy] = [Math.cos(r), Math.sin(r), Math.cos(p), Math.sin(p), Math.cos(y), Math.sin(y)];
     return [[cy*cp, cy*sp*sr - sy*cr, cy*sp*cr + sy*sr], [sy*cp, sy*sp*sr + cy*cr, sy*sp*cr - cy*sr], [-sp, cp*sr, cp*cr]]; }
   const mv = (M, v) => [M[0][0]*v[0]+M[0][1]*v[1]+M[0][2]*v[2], M[1][0]*v[0]+M[1][1]*v[1]+M[1][2]*v[2], M[2][0]*v[0]+M[2][1]*v[1]+M[2][2]*v[2]];
   const mtv = (M, v) => [M[0][0]*v[0]+M[1][0]*v[1]+M[2][0]*v[2], M[0][1]*v[0]+M[1][1]*v[1]+M[2][1]*v[2], M[0][2]*v[0]+M[1][2]*v[1]+M[2][2]*v[2]];
-  function lidarsW() { return VEH[key].lidar.map(([name, model, x, y, z, r, p, yw]) => { const [wx, wy] = toW(x, y); return { name, model, p: [wx, wy, z], M: rotM(r, p, yw + pose.yaw) }; }); }
-  function camsW() { return VEH[key].cams.map(([name, x, y, yaw, fov]) => { const [wx, wy] = toW(x, y); return { name, x: wx, y: wy, yaw: yaw + pose.yaw, fov }; }); }
-  function vehCenter() { const b = VEH[key].body; return toW((b[0] + b[1]) / 2, 0); }
-  // board: centre c, 1.4 x 1.0, vertical, facing vehicle centre
-  function boardFrame(x, y, z) { const [vx, vy] = vehCenter(); let nx = vx - x, ny = vy - y; const l = Math.hypot(nx, ny) || 1; nx /= l; ny /= l; return { c: [x, y, z], n: [nx, ny, 0], u: [-ny, nx, 0] }; }
-  function scanBoard(B, Ls, keepPts) {
+  function lidarsW() { return S.sensors.filter(s => s.kind === "lid").map(s => { const [x, y] = toW(S, s.x, s.y); return { ref: s, name: s.name, model: s.model, p: [x, y, s.z], M: rotM(s.roll, s.pitch, s.yaw + S.pose.yaw) }; }); }
+  function camsW() { return S.sensors.filter(s => s.kind === "cam").map(s => { const [x, y] = toW(S, s.x, s.y); return { ref: s, name: s.name, x, y, z: s.z, yaw: s.yaw + S.pose.yaw, pitch: s.pitch, hfov: s.hfov }; }); }
+  const boardFrame = (x, y, z, yaw) => { const nx = Math.cos(yaw * D2R), ny = Math.sin(yaw * D2R); return { c: [x, y, z], n: [nx, ny, 0], u: [-ny, nx, 0] }; };
+  const HOLES = [[-0.25, 0.2], [0.25, 0.2], [-0.25, -0.2], [0.25, -0.2]];
+  function scanBoard(B, Ls, keep) {
     let best = 0, bestL = null; const pts = [];
     Ls.forEach(L => {
-      const rel = [B.c[0] - L.p[0], B.c[1] - L.p[1], B.c[2] - L.p[2]], dist = Math.hypot(rel[0], rel[1], rel[2]);
-      if (dist < 0.8 || dist > 40) return;
-      const loc = mtv(L.M, rel), phi0 = Math.atan2(loc[1], loc[0]) / D2R, half = Math.atan(0.85 / Math.hypot(loc[0], loc[1])) / D2R + 1;
-      const rings = new Set();
-      const els = MODEL[L.model];
+      const rel = [B.c[0] - L.p[0], B.c[1] - L.p[1], B.c[2] - L.p[2]];
+      if (Math.hypot(...rel) < 0.8) return;
+      const loc = mtv(L.M, rel), phi0 = Math.atan2(loc[1], loc[0]) / D2R, half = Math.atan(0.85 / Math.max(0.3, Math.hypot(loc[0], loc[1]))) / D2R + 1;
+      const rings = new Set(), cs = LMODEL[L.model].cs;
       for (let phi = phi0 - half; phi <= phi0 + half; phi += 0.35) {
         const cph = Math.cos(phi * D2R), sph = Math.sin(phi * D2R);
-        for (let k = 0; k < els.length; k++) {
-          const ce = els[k][0], se = els[k][1];
-          const d = mv(L.M, [ce * cph, ce * sph, se]);
+        for (let k = 0; k < cs.length; k++) {
+          const d = mv(L.M, [cs[k][0] * cph, cs[k][0] * sph, cs[k][1]]);
           const dn = d[0] * B.n[0] + d[1] * B.n[1]; if (Math.abs(dn) < 1e-4) continue;
           const t = (rel[0] * B.n[0] + rel[1] * B.n[1]) / dn; if (t <= 0) continue;
           const q = [L.p[0] + d[0] * t - B.c[0], L.p[1] + d[1] * t - B.c[1], L.p[2] + d[2] * t - B.c[2]];
           const a = q[0] * B.u[0] + q[1] * B.u[1], b = q[2];
-          if (Math.abs(a) <= 0.7 && Math.abs(b) <= 0.5) {
-            const hole = [[-0.25, 0.2], [0.25, 0.2], [-0.25, -0.2], [0.25, -0.2]].some(([ha, hb]) => Math.hypot(a - ha, b - hb) < 0.12);
-            if (!hole) { rings.add(k); if (keepPts) pts.push(B.c[0] + q[0], B.c[1] + q[1], B.c[2] + q[2]); }
-          }
+          if (Math.abs(a) <= 0.7 && Math.abs(b) <= 0.5 && !HOLES.some(([ha, hb]) => Math.hypot(a - ha, b - hb) < 0.12)) { rings.add(k); if (keep) pts.push(B.c[0] + q[0], B.c[1] + q[1], B.c[2] + q[2]); }
         }
       }
       if (rings.size > best) { best = rings.size; bestL = L.name; }
@@ -201,152 +218,196 @@ canvas { width: 100%; display: block; border-radius: 6px; background: #05090e; t
   }
   const ringState = r => r >= 10 ? "ok" : r >= 5 ? "warn" : "bad";
   const wrap = a => ((a + 540) % 360) - 180;
-  function evaluate(withPts) {
+  function evaluate(keep) {
     const Ls = lidarsW();
-    BR = []; stands.forEach((s, i) => s.z.forEach((z, j) => { const B = boardFrame(s.x, s.y, z); const r = scanBoard(B, Ls, withPts); BR.push({ i, j, z, B, ...r }); }));
-    R = camsW().map(c => {
-      const vis = [];
-      stands.forEach((s, i) => { const dx = s.x - c.x, dy = s.y - c.y, d = Math.hypot(dx, dy); const b = wrap(Math.atan2(dy, dx) / D2R - c.yaw);
-        if (Math.abs(b) <= c.fov / 2 && d >= 1.5 && d <= 15) { const ok = BR.filter(r => r.i === i && r.rings >= 5).length; vis.push({ i, d, b, n: s.z.length, ok }); } });
-      const n = vis.reduce((a, v) => a + v.ok, 0), raw = vis.reduce((a, v) => a + v.n, 0);
-      const usable = vis.filter(v => v.ok > 0);
+    BR = []; S.stands.forEach((s, i) => s.z.forEach((z, j) => { const B = boardFrame(s.x, s.y, z, s.yaw); BR.push({ i, j, z, B, ...scanBoard(B, Ls, keep) }); }));
+    CR = camsW().map(c => {
+      const vf = Math.min(c.hfov * 0.65, 120), vis = [];
+      S.stands.forEach((s, i) => {
+        const dx = s.x - c.x, dy = s.y - c.y, d = Math.hypot(dx, dy), b = wrap(Math.atan2(dy, dx) / D2R - c.yaw);
+        if (Math.abs(b) > c.hfov / 2 || d < 1.5 || d > 15) return;
+        const face = Math.abs(wrap(Math.atan2(-dy, -dx) / D2R - s.yaw));
+        let ok = 0, n = 0;
+        s.z.forEach((z, j) => { const el = Math.atan2(z - c.z, d) / D2R - c.pitch; if (Math.abs(el) > vf / 2) return; n++; const br = BR.find(r => r.i === i && r.j === j); if (face <= 70 && br.rings >= 5) ok++; });
+        if (n) vis.push({ i, d, b, n, ok, face });
+      });
+      const n = vis.reduce((a, v) => a + v.ok, 0), raw = vis.reduce((a, v) => a + v.n, 0), usable = vis.filter(v => v.ok > 0);
       const bands = [usable.some(v => v.d <= 3.5), usable.some(v => v.d > 3.5 && v.d <= 5.5), usable.some(v => v.d > 5.5)];
-      const spread = usable.length ? (Math.max(...usable.map(v => v.b)) - Math.min(...usable.map(v => v.b))) / c.fov : 0;
-      const stackOnly = usable.length > 0 && usable.every(v => v.n > 1);
+      const spread = usable.length ? (Math.max(...usable.map(v => v.b)) - Math.min(...usable.map(v => v.b))) / c.hfov : 0;
       const issues = [];
-      if (raw > n) issues.push(`라이다 라인 부족으로 보드 ${raw - n}장 제외`);
+      if (vis.some(v => v.face > 70)) issues.push("캘판이 카메라를 등지고 있음 → 방향 돌리기");
+      if (raw > n && !vis.some(v => v.face > 70)) issues.push(`라이다 라인 부족으로 보드 ${raw - n}장 제외`);
       if (n < 5) issues.push(`쓸 수 있는 보드 ${n}장 → ${5 - n}장 더 필요`);
       if (bands.filter(Boolean).length < 2) issues.push("거리 구간 1개뿐 → 2~3 / 4~5 / 6 m+ 섞기");
-      if (stackOnly) issues.push("타워만 보임 → 단독 보드 1장 추가 (한 칸 밀림 방지)");
+      if (usable.length && usable.every(v => S.stands[v.i].z.length > 1)) issues.push("타워만 보임 → 단독 보드 1장 추가 (한 칸 밀림 방지)");
       if (usable.length && spread < 0.4) issues.push(`화면의 ${Math.round(spread * 100)}%에만 몰림 → 가장자리에도 배치`);
-      const st = n < 3 ? "bad" : issues.filter(t => !t.startsWith("라이다")).length ? "warn" : "ok";
+      const st = n < 3 ? "bad" : issues.some(t => !t.startsWith("라이다")) ? "warn" : "ok";
       const acc = n >= 6 ? "중앙 약 5 mm · 0.1°" : n >= 5 ? "cm 이내 예상" : n >= 3 ? "cm급 · 최악 2°" : "풀이 불가/불안정";
-      return { ...c, vis, n, raw, bands, spread, issues, st, acc };
+      return { ...c, vis, n, bands, spread, issues, st, acc };
     });
   }
-  // ---------- top view ----------
-  function fit() {
-    const v = VEH[key]; const xs = [v.body[0], v.body[1], ...stands.map(s => s.x)], ys = [v.body[2], -v.body[2], ...stands.map(s => s.y)];
-    const x0 = Math.min(...xs) - 4, x1 = Math.max(...xs) + 4, y0 = Math.min(...ys) - 4, y1 = Math.max(...ys) + 4;
-    view = { s: Math.min(cv.width / (x1 - x0), cv.height / (y1 - y0)), cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 };
-  }
-  const W2C = (x, y) => [cv.width / 2 + (x - view.cx) * view.s, cv.height / 2 - (y - view.cy) * view.s];
-  const C2W = (px, py) => [(px - cv.width / 2) / view.s + view.cx, -(py - cv.height / 2) / view.s + view.cy];
-  const SC = { ok: "#59d1a0", warn: "#e8b84a", bad: "#ff7a7a" }, SCr = { ok: "89,209,160", warn: "232,184,74", bad: "255,122,122" };
-  function draw2d() {
-    const v = VEH[key]; g.fillStyle = "#05090e"; g.fillRect(0, 0, cv.width, cv.height);
-    const [gx0, gy1] = C2W(0, 0), [gx1, gy0] = C2W(cv.width, cv.height);
-    for (let x = Math.floor(gx0); x <= gx1; x++) { const [a] = W2C(x, 0); g.strokeStyle = x % 5 ? "#141e29" : "#22303f"; g.lineWidth = 1; g.beginPath(); g.moveTo(a, 0); g.lineTo(a, cv.height); g.stroke(); }
-    for (let y = Math.floor(gy0); y <= gy1; y++) { const [, b] = W2C(0, y); g.strokeStyle = y % 5 ? "#141e29" : "#22303f"; g.beginPath(); g.moveTo(0, b); g.lineTo(cv.width, b); g.stroke(); }
-    R.forEach(r => { if (focus && focus !== r.name) return; const [cx, cy] = W2C(r.x, r.y); g.fillStyle = `rgba(${SCr[r.st]},${focus ? .14 : .06})`; g.beginPath(); g.moveTo(cx, cy);
-      g.arc(cx, cy, 15 * view.s, (-r.yaw - r.fov / 2) * D2R, (-r.yaw + r.fov / 2) * D2R); g.closePath(); g.fill();
-      if (focus) { g.strokeStyle = `rgba(${SCr[r.st]},.9)`; g.setLineDash([6, 6]); r.vis.forEach(vv => { const [sx, sy] = W2C(stands[vv.i].x, stands[vv.i].y); g.beginPath(); g.moveTo(cx, cy); g.lineTo(sx, sy); g.stroke(); }); g.setLineDash([]); } });
-    // vehicle body
-    const b = v.body, corners = [[b[0], b[2]], [b[1], b[2]], [b[1], -b[2]], [b[0], -b[2]]].map(([x, y]) => W2C(...toW(x, y)));
-    g.fillStyle = drag && drag.veh ? "rgba(30,155,215,.35)" : "rgba(95,122,153,.35)"; g.strokeStyle = "#8fa6c0"; g.lineWidth = 2; g.beginPath(); corners.forEach((p, i) => i ? g.lineTo(...p) : g.moveTo(...p)); g.closePath(); g.fill(); g.stroke();
-    const [fx, fy] = W2C(...toW(b[1] - 0.6, 0)), [bx, by] = W2C(...toW((b[0] + b[1]) / 2, 0));
-    g.strokeStyle = "#cfe3f5"; g.lineWidth = 3; g.beginPath(); g.moveTo(bx, by); g.lineTo(fx, fy); g.stroke(); g.beginPath(); g.arc(fx, fy, 6, 0, 6.283); g.fillStyle = "#cfe3f5"; g.fill();
-    lidarsW().forEach(L => { const [lx, ly] = W2C(L.p[0], L.p[1]); g.fillStyle = "#7fe0c4"; g.fillRect(lx - 5, ly - 5, 10, 10); });
-    R.forEach(r => { const [cx, cy] = W2C(r.x, r.y); g.fillStyle = SC[r.st]; g.beginPath(); g.arc(cx, cy, 7, 0, 6.283); g.fill();
-      if (!focus || focus === r.name) { g.font = "500 16px IBM Plex Mono, monospace"; g.textAlign = "center"; const a = r.yaw * D2R; g.fillText(r.name, cx + Math.cos(a) * 36, cy - Math.sin(a) * 36 + 6); } });
-    stands.forEach((s, i) => { const [sx, sy] = W2C(s.x, s.y), sz = s.z.length > 1 ? 26 : 16;
-      const worst = BR.filter(r => r.i === i).reduce((m, r) => Math.min(m, r.rings), 999); const seen = !focus || R.find(r => r.name === focus).vis.some(vv => vv.i === i);
-      g.globalAlpha = seen ? 1 : .3; g.fillStyle = SC[ringState(worst)]; g.fillRect(sx - sz / 2, sy - sz / 2, sz, sz);
-      if (i === sel) { g.strokeStyle = "#fff"; g.lineWidth = 3; g.strokeRect(sx - sz / 2 - 4, sy - sz / 2 - 4, sz + 8, sz + 8); }
-      g.fillStyle = "#05090e"; g.font = "700 13px IBM Plex Mono, monospace"; g.textAlign = "center"; g.fillText(s.z.length > 1 ? "×" + s.z.length : "", sx, sy + 5); g.globalAlpha = 1; });
-    g.textAlign = "start";
-  }
   // ---------- 3D ----------
-  const g3 = $("g3"); const rd = new THREE.WebGLRenderer({ canvas: g3, antialias: true, preserveDrawingBuffer: true }); rd.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); rd.setClearColor(0x05090e);
-  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, 1200 / 860, 0.05, 400); cam.up.set(0, 0, 1);
-  const ctl = new THREE.OrbitControls(cam, g3); ctl.enableDamping = true;
+  const cv = $("g3"), rd = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true });
+  rd.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); rd.setClearColor(0x05090e);
+  const sc = new THREE.Scene(), cam = new THREE.PerspectiveCamera(45, 16 / 10, 0.05, 400); cam.up.set(0, 0, 1);
+  // our pointer handler must be registered before OrbitControls so it can disable it for object drags
+  let down = null, picks = [];
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+  function hit(e) { const r = cv.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1); ray.setFromCamera(ndc, cam); return ray; }
+  function groundAt(e) { const p = new THREE.Vector3(); return hit(e).ray.intersectPlane(ground, p) ? p : null; }
+  cv.addEventListener("pointerdown", e => {
+    const hs = hit(e).intersectObjects(picks, false); const h = hs.length ? hs[0].object.userData : null;
+    down = { x: e.clientX, y: e.clientY, h, moved: false, g0: groundAt(e) };
+    if (h && sel && sameSel(h, sel) && h.kind !== "sensor") { ctl.enabled = false; cv.setPointerCapture(e.pointerId);
+      const base = h.kind === "veh" ? S.pose : S.stands[h.i]; down.off = down.g0 ? [base.x - down.g0.x, base.y - down.g0.y] : [0, 0]; }
+  });
+  const ctl = new THREE.OrbitControls(cam, cv); ctl.enableDamping = true;
+  const sameSel = (a, b) => a.kind === b.kind && (a.kind === "veh" || a.i === b.i);
+  let raf = null;
+  cv.addEventListener("pointermove", e => {
+    if (!down) return; if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) down.moved = true;
+    if (!down.moved || ctl.enabled || !down.h) return;
+    const g = groundAt(e); if (!g) return;
+    if (down.h.kind === "veh") { S.pose.x = r1(g.x + down.off[0]); S.pose.y = r1(g.y + down.off[1]); }
+    else { const s = S.stands[down.h.i]; s.x = r1(g.x + down.off[0]); s.y = r1(g.y + down.off[1]); }
+    if (!raf) raf = requestAnimationFrame(() => { raf = null; evaluate(false); build3d(false); });
+  });
+  cv.addEventListener("pointerup", () => {
+    if (!down) return; const d = down; down = null;
+    if (!ctl.enabled) { ctl.enabled = true; save(); refresh(); return; }
+    if (!d.moved) { sel = d.h ? { ...d.h } : null; refresh(); }
+  });
   sc.add(new THREE.AmbientLight(0xffffff, .75)); const dl = new THREE.DirectionalLight(0xffffff, .5); dl.position.set(5, -8, 12); sc.add(dl);
-  const grid = []; for (let i = -30; i <= 30; i++) grid.push(new THREE.Vector3(i, -30, 0), new THREE.Vector3(i, 30, 0), new THREE.Vector3(-30, i, 0), new THREE.Vector3(30, i, 0));
-  sc.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(grid), new THREE.LineBasicMaterial({ color: 0x1a2633 })));
-  let dyn = null, camSet = null;
+  const gp = []; for (let i = -30; i <= 30; i++) gp.push(new THREE.Vector3(i, -30, 0), new THREE.Vector3(i, 30, 0), new THREE.Vector3(-30, i, 0), new THREE.Vector3(30, i, 0));
+  sc.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gp), new THREE.LineBasicMaterial({ color: 0x1a2633 })));
   const C3 = { ok: 0x59d1a0, warn: 0xe8b84a, bad: 0xff7a7a };
-  function build3d() {
+  let dyn = null, camSet = null;
+  const isSel = (kind, i) => sel && sel.kind === kind && (kind === "veh" || sel.i === i);
+  function build3d(withPts) {
     if (dyn) { sc.remove(dyn); dyn.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
-    dyn = new THREE.Group(); sc.add(dyn); const v = VEH[key], b = v.body;
-    const box = new THREE.Mesh(new THREE.BoxGeometry(b[1] - b[0], 2 * b[2], b[3] - 0.3), new THREE.MeshLambertMaterial({ color: 0x5f7a99, transparent: true, opacity: .35 }));
-    const [cx, cy] = toW((b[0] + b[1]) / 2, 0); box.position.set(cx, cy, 0.3 + (b[3] - 0.3) / 2); box.rotation.z = pose.yaw * D2R; dyn.add(box);
-    const ed = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineBasicMaterial({ color: 0x8fa6c0 })); ed.position.copy(box.position); ed.rotation.copy(box.rotation); dyn.add(ed);
-    lidarsW().forEach(L => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .14, 16), new THREE.MeshLambertMaterial({ color: 0x7fe0c4 })); m.rotation.x = Math.PI / 2; m.position.set(...L.p); dyn.add(m); });
-    R.forEach(r => { const m = new THREE.Mesh(new THREE.SphereGeometry(.07, 10, 10), new THREE.MeshBasicMaterial({ color: 0x1e9bd7 })); const cz = v.body[3] * 0.7; m.position.set(r.x, r.y, cz); dyn.add(m); });
+    dyn = new THREE.Group(); sc.add(dyn); picks = [];
+    const b = S.body, [cx, cy] = vehCenter(S);
+    const box = new THREE.Mesh(new THREE.BoxGeometry(b[1] - b[0], 2 * b[2], b[3] - 0.3), new THREE.MeshLambertMaterial({ color: isSel("veh") ? 0x2c5f86 : 0x5f7a99, transparent: true, opacity: .4 }));
+    box.position.set(cx, cy, .3 + (b[3] - .3) / 2); box.rotation.z = S.pose.yaw * D2R; box.userData = { kind: "veh" }; dyn.add(box); picks.push(box);
+    const ed = new THREE.LineSegments(new THREE.EdgesGeometry(box.geometry), new THREE.LineBasicMaterial({ color: isSel("veh") ? 0xffffff : 0x8fa6c0 })); ed.position.copy(box.position); ed.rotation.copy(box.rotation); dyn.add(ed);
+    const [fx, fy] = toW(S, b[1] + 0.8, 0); const ar = new THREE.ArrowHelper(new THREE.Vector3(Math.cos(S.pose.yaw * D2R), Math.sin(S.pose.yaw * D2R), 0), new THREE.Vector3(...toW(S, b[1] - 0.2, 0), b[3] + 0.05), 1.0, 0xcfe3f5, .35, .25); dyn.add(ar);
+    // sensors
+    S.sensors.forEach((s, si) => {
+      const [x, y] = toW(S, s.x, s.y), on = isSel("sensor", si);
+      if (s.kind === "lid") { const m = new THREE.Mesh(new THREE.CylinderGeometry(on ? .14 : .1, on ? .14 : .1, .16, 16), new THREE.MeshLambertMaterial({ color: on ? 0xffffff : 0x7fe0c4 })); m.rotation.x = Math.PI / 2; m.position.set(x, y, s.z); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m); }
+      else {
+        const yaw = (s.yaw + S.pose.yaw) * D2R, pit = s.pitch * D2R, L = on ? 1.4 : 0.9, hf = Math.min(s.hfov, 150) * D2R / 2, vf = Math.min(s.hfov * .65, 120) * D2R / 2;
+        const p = new THREE.Vector3(x, y, s.z), f = new THREE.Vector3(Math.cos(yaw) * Math.cos(pit), Math.sin(yaw) * Math.cos(pit), Math.sin(pit)), l = new THREE.Vector3(-Math.sin(yaw), Math.cos(yaw), 0), u = new THREE.Vector3().crossVectors(f, l);
+        const cs = [[1, 1], [1, -1], [-1, -1], [-1, 1]].map(([a, c]) => p.clone().add(f.clone().multiplyScalar(L)).add(l.clone().multiplyScalar(a * L * Math.tan(hf))).add(u.clone().multiplyScalar(c * L * Math.tan(vf))));
+        const lp = []; cs.forEach((q, k) => lp.push(p, q, q, cs[(k + 1) % 4]));
+        const cr = CR.find(c => c.ref === s); const col = on ? 0xffffff : cr ? C3[cr.st] : 0x1e9bd7;
+        dyn.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: focus && focus !== s.name ? .2 : .9 })));
+        const m = new THREE.Mesh(new THREE.SphereGeometry(on ? .12 : .08, 12, 12), new THREE.MeshBasicMaterial({ color: on ? 0xffffff : 0x1e9bd7 })); m.position.copy(p); m.userData = { kind: "sensor", i: si }; dyn.add(m); picks.push(m);
+        if (focus === s.name && cr) cr.vis.forEach(v => { const st = S.stands[v.i]; dyn.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([p, new THREE.Vector3(st.x, st.y, st.z[0])]), new THREE.LineDashedMaterial({ color: 0xe6edf5, dashSize: .2, gapSize: .12 })).computeLineDistances()); });
+      }
+    });
+    // stands
     const pts = [];
-    BR.forEach(br => { const s = stands[br.i]; const B = br.B; const col = C3[ringState(br.rings)];
-      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: (sel < 0 || sel === br.i) ? .42 : .15, side: THREE.DoubleSide }));
-      pl.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...B.u), new THREE.Vector3(0, 0, 1), new THREE.Vector3(...B.n))); pl.position.set(...B.c); dyn.add(pl);
-      const ee = new THREE.LineSegments(new THREE.EdgesGeometry(pl.geometry), new THREE.LineBasicMaterial({ color: col })); ee.quaternion.copy(pl.quaternion); ee.position.copy(pl.position); dyn.add(ee);
-      for (let k = 0; k < br.pts.length; k++) pts.push(br.pts[k]); });
-    stands.forEach(s => { const top = Math.max(...s.z) + 0.5; const pole = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, top, 8), new THREE.MeshLambertMaterial({ color: 0x55606e })); pole.rotation.x = Math.PI / 2; pole.position.set(s.x, s.y, top / 2); dyn.add(pole); });
-    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.035 }))); }
-    if (camSet !== key) { camSet = key; const [x, y] = vehCenter(); cam.position.set(x - 14, y - 12, 11); ctl.target.set(x + 2, y, 1.2); ctl.update(); }
+    S.stands.forEach((s, i) => {
+      const on = isSel("stand", i), top = Math.max(...s.z) + .5;
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(on ? .06 : .035, on ? .06 : .035, top, 8), new THREE.MeshLambertMaterial({ color: on ? 0xffffff : 0x55606e })); pole.rotation.x = Math.PI / 2; pole.position.set(s.x, s.y, top / 2); pole.userData = { kind: "stand", i }; dyn.add(pole); picks.push(pole);
+      if (on) { const ring = new THREE.Mesh(new THREE.RingGeometry(.9, 1.0, 40), new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide })); ring.position.set(s.x, s.y, .01); dyn.add(ring); }
+      const nv = new THREE.Vector3(Math.cos(s.yaw * D2R), Math.sin(s.yaw * D2R), 0);
+      dyn.add(new THREE.ArrowHelper(nv, new THREE.Vector3(s.x, s.y, .05), .9, on ? 0xffffff : 0x8a9bb0, .25, .18));
+    });
+    BR.forEach(br => { const B = br.B, col = C3[ringState(br.rings)], on = isSel("stand", br.i);
+      const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: on ? .6 : .38, side: THREE.DoubleSide }));
+      pl.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...B.u), new THREE.Vector3(0, 0, 1), new THREE.Vector3(...B.n))); pl.position.set(...B.c); pl.userData = { kind: "stand", i: br.i }; dyn.add(pl); picks.push(pl);
+      const ee = new THREE.LineSegments(new THREE.EdgesGeometry(pl.geometry), new THREE.LineBasicMaterial({ color: on ? 0xffffff : col })); ee.quaternion.copy(pl.quaternion); ee.position.copy(pl.position); dyn.add(ee);
+      if (withPts) for (let k = 0; k < br.pts.length; k++) pts.push(br.pts[k]); });
+    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: .035 }))); }
+    if (camSet !== key) { camSet = key; cam.position.set(cx - 15, cy - 14, 13); ctl.target.set(cx + 2, cy, 1.2); ctl.update(); }
   }
   function loop() { ctl.update(); rd.render(sc, cam); requestAnimationFrame(loop); }
-  new ResizeObserver(() => { const w = g3.clientWidth, h = g3.clientHeight; if (w && h) { rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); } }).observe(g3);
-  // ---------- panels ----------
-  function panels() {
-    $("s-ok").textContent = `${R.filter(r => r.st === "ok").length} / ${R.length}`;
-    $("s-n").textContent = `${BR.filter(b => b.rings >= 5).length} / ${BR.length}`; $("s-st").textContent = stands.length;
-    $("del").disabled = sel < 0;
+  new ResizeObserver(() => { const w = cv.clientWidth, h = cv.clientHeight; if (w && h) { rd.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); } }).observe(cv);
+  // ---------- editor ----------
+  const num = (id, label, val, min, max, step, unit) => `<label class="f"><span>${label}</span><input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${val}"><span><input type="number" id="${id}-n" min="${min}" max="${max}" step="${step}" value="${val}" aria-label="${label} ${unit}"></span></label>`;
+  function bindNum(id, set) { const a = $(id), b = $(id + "-n"); const go = v => { v = parseFloat(v); if (isNaN(v)) return; a.value = v; b.value = v; set(v); save(); evaluate(true); build3d(true); panels(false); };
+    a.addEventListener("input", e => go(e.target.value)); b.addEventListener("change", e => go(e.target.value)); }
+  function editor() {
+    const ed = $("ed");
+    if (!sel) { $("sel-kind").textContent = "없음"; ed.innerHTML = `<p class="hint" style="margin:0">3D 화면에서 <b>차량</b>, <b>캘판</b>, <b>센서</b>를 누르면 여기서 위치·방향을 바꾸거나 원위치로 돌릴 수 있습니다. 선택한 것은 화면에서 끌어서 옮길 수도 있습니다.</p><div class="row2"><button id="pick-veh">차량 선택</button></div>`; $("pick-veh").onclick = () => { sel = { kind: "veh" }; refresh(); }; return; }
+    if (sel.kind === "veh") {
+      $("sel-kind").textContent = "차량"; const p = S.pose;
+      ed.innerHTML = `<h3>차량<span>${PRE[key].name.split(" (")[0]}</span></h3>${num("vx", "앞뒤 x", p.x, -20, 20, 0.1, "m")}${num("vy", "좌우 y", p.y, -20, 20, 0.1, "m")}${num("vyaw", "방향", p.yaw, -180, 180, 1, "°")}
+        <div class="row2"><button id="v-l">⟲ 15°</button><button id="v-r">⟳ 15°</button><button id="v-180">180° 돌리기</button><button id="v-home" class="pri">원위치</button></div>`;
+      bindNum("vx", v => p.x = v); bindNum("vy", v => p.y = v); bindNum("vyaw", v => p.yaw = v);
+      const rot = d => { p.yaw = wrap(p.yaw + d); save(); refresh(); };
+      $("v-l").onclick = () => rot(15); $("v-r").onclick = () => rot(-15); $("v-180").onclick = () => rot(180);
+      $("v-home").onclick = () => { S.pose = { x: 0, y: 0, yaw: 0 }; save(); refresh(); };
+      return;
+    }
+    if (sel.kind === "stand") {
+      const s = S.stands[sel.i]; if (!s) { sel = null; return editor(); }
+      $("sel-kind").textContent = s.z.length > 1 ? "3단 캘판" : "단독 캘판";
+      const hs = s.z.map((z, j) => { const br = BR.find(b => b.i === sel.i && b.j === j); return num("bz" + j, `보드 ${j + 1} 높이`, z, 0.6, 3.2, 0.05, "m") + `<div class="hint" style="margin:-4px 0 0 80px">라이다 라인 <b style="color:var(${br.rings >= 10 ? "--ok" : br.rings >= 5 ? "--warn" : "--bad"})">${br.rings}줄</b> (${br.lidar || "–"})</div>`; }).join("");
+      const Ls = lidarsW(), guide = []; for (let z = 0.6; z <= 3.21; z += 0.2) { const r = scanBoard(boardFrame(s.x, s.y, z, s.yaw), Ls, false); guide.push([z, r.rings]); }
+      const mx = Math.max(1, ...guide.map(g => g[1])), best = guide.reduce((a, b) => b[1] > a[1] ? b : a);
+      ed.innerHTML = `<h3>${s.z.length > 1 ? "3단 캘판" : "단독 캘판"}<span>#${sel.i + 1}</span></h3>${num("sx", "x", s.x, -25, 25, 0.1, "m")}${num("sy", "y", s.y, -25, 25, 0.1, "m")}${num("syaw", "방향", s.yaw, -180, 180, 1, "°")}${hs}
+        <div class="row2"><button id="s-face">카메라 쪽 보기</button><button id="s-l">⟲ 15°</button><button id="s-r">⟳ 15°</button><button id="s-home" class="pri">원위치</button><button id="s-del" class="danger">삭제</button></div>
+        <div class="hint">이 자리에서 보드 높이별 라이다 라인 수 · 가장 좋음 <b style="color:var(--ok)">${best[0].toFixed(1)} m (${best[1]}줄)</b></div>
+        <div class="guide">${guide.slice().reverse().map(([z, r]) => `<div class="gbar ${r === best[1] ? "best" : ""} ${s.z.some(q => Math.abs(q - z) < .11) ? "cur" : ""}"><span>${z.toFixed(1)} m</span><div class="tr"><div class="fl" style="width:${(r / mx * 100).toFixed(0)}%"></div></div><span>${r}줄</span></div>`).join("")}</div>`;
+      bindNum("sx", v => s.x = v); bindNum("sy", v => s.y = v); bindNum("syaw", v => s.yaw = v); s.z.forEach((_, j) => bindNum("bz" + j, v => s.z[j] = v));
+      $("s-face").onclick = () => { s.yaw = faceYaw(S, s.x, s.y); save(); refresh(); };
+      $("s-l").onclick = () => { s.yaw = wrap(s.yaw + 15); save(); refresh(); }; $("s-r").onclick = () => { s.yaw = wrap(s.yaw - 15); save(); refresh(); };
+      $("s-home").onclick = () => { Object.assign(s, { x: s.o.x, y: s.o.y, yaw: s.o.yaw }); save(); refresh(); };
+      $("s-del").onclick = () => { S.stands.splice(sel.i, 1); sel = null; save(); refresh(); };
+      return;
+    }
+    const s = S.sensors[sel.i]; if (!s) { sel = null; return editor(); }
+    $("sel-kind").textContent = s.kind === "cam" ? "카메라" : "라이다";
+    const typeSel = s.kind === "cam"
+      ? `<label class="f"><span>화각</span><select id="s-hfov">${HFOVS.map(h => `<option value="${h}" ${h === s.hfov ? "selected" : ""}>${h}°</option>`).join("")}</select></label>`
+      : `<label class="f"><span>채널</span><select id="s-model">${Object.entries(LMODEL).map(([k, m]) => `<option value="${k}" ${k === s.model ? "selected" : ""}>${m.label}</option>`).join("")}</select></label>`;
+    ed.innerHTML = `<h3><input id="s-name" value="${s.name.replace(/"/g, "&quot;")}" aria-label="센서 이름" style="font:600 14px var(--f-mono);background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--fg);padding:3px 6px;width:100%"></h3>${typeSel}
+      ${num("ex", "앞뒤 x", s.x, S.body[0] - 1, S.body[1] + 1, 0.05, "m")}${num("ey", "좌우 y", s.y, -S.body[2] - 0.5, S.body[2] + 0.5, 0.05, "m")}${num("ez", "높이 z", s.z, 0.3, S.body[3] + 0.6, 0.05, "m")}
+      ${num("eyaw", "방향", s.yaw, -180, 180, 1, "°")}${num("epit", "위아래", s.pitch, -45, 45, 0.5, "°")}
+      <div class="hint">위치는 차량 기준 (x 앞, y 왼쪽, 지면 = 0)</div>
+      <div class="row2">${s.o ? '<button id="e-home" class="pri">원위치</button>' : ""}<button id="e-del" class="danger">센서 삭제</button></div>`;
+    $("s-name").onchange = e => { s.name = e.target.value || s.name; save(); refresh(); };
+    if (s.kind === "cam") $("s-hfov").onchange = e => { s.hfov = parseFloat(e.target.value); save(); refresh(); };
+    else $("s-model").onchange = e => { s.model = e.target.value; save(); refresh(); };
+    bindNum("ex", v => s.x = v); bindNum("ey", v => s.y = v); bindNum("ez", v => s.z = v); bindNum("eyaw", v => s.yaw = v); bindNum("epit", v => s.pitch = v);
+    if (s.o) $("e-home").onclick = () => { Object.assign(s, s.o); save(); refresh(); };
+    $("e-del").onclick = () => { S.sensors.splice(sel.i, 1); sel = null; save(); refresh(); };
+  }
+  function panels(full) {
+    $("s-ok").textContent = `${CR.filter(r => r.st === "ok").length} / ${CR.length}`;
+    $("s-n").textContent = `${BR.filter(b => b.rings >= 5).length} / ${BR.length}`; $("s-st").textContent = S.stands.length;
     const box = $("cams"); box.innerHTML = "";
-    R.forEach(r => { const b = document.createElement("button"); b.className = "cam"; b.dataset.s = r.st; b.setAttribute("aria-pressed", focus === r.name ? "true" : "false");
+    CR.forEach(r => { const b = document.createElement("button"); b.className = "cam"; b.dataset.s = r.st; b.setAttribute("aria-pressed", focus === r.name ? "true" : "false");
       b.innerHTML = `<div class="h">${r.name}<span class="pill ${r.st}">${{ ok: "통과", warn: "보완", bad: "부족" }[r.st]}</span></div>
-        <div class="row"><span>사용 가능 보드 <b>${r.n}장</b></span><span>예상 <b>${r.acc}</b></span><span>화면 폭 <b>${Math.round(r.spread * 100)}%</b></span></div>
+        <div class="row"><span>화각 <b>${r.hfov}°</b></span><span>사용 가능 보드 <b>${r.n}장</b></span><span>예상 <b>${r.acc}</b></span><span>화면 폭 <b>${Math.round(r.spread * 100)}%</b></span></div>
         <div class="row">${["2~3 m", "4~5 m", "6 m+"].map((t, i) => `<span class="chip ${r.bands[i] ? "on" : ""}">${t}</span>`).join("")}</div>
         ${r.issues.length ? `<ul>${r.issues.map(t => `<li>${t}</li>`).join("")}</ul>` : ""}`;
-      b.onclick = () => { focus = focus === r.name ? null : r.name; update(false); }; box.appendChild(b); });
-    const body = $("sel-body");
-    if (sel < 0) { $("sel-h").textContent = "선택한 거치대"; body.className = "hint"; body.innerHTML = "Top View에서 거치대를 누르면 보드 높이를 바꾸고, 그 위치에서 어떤 높이가 라이다에 잘 잡히는지 볼 수 있습니다."; return; }
-    const s = stands[sel]; const d = Math.hypot(s.x - vehCenter()[0], s.y - vehCenter()[1]);
-    $("sel-h").textContent = `선택한 거치대 · ${s.z.length > 1 ? "3단 캘판" : "단독 보드"} · 차량 중심에서 ${d.toFixed(1)} m`;
-    body.className = "";
-    const rows = s.z.map((z, j) => { const br = BR.find(b => b.i === sel && b.j === j); return `<div class="brd"><span>보드 ${j + 1}</span><input type="range" min="0.6" max="3.2" step="0.05" value="${z}" data-j="${j}" aria-label="보드 ${j + 1} 높이"><span style="color:${SC[ringState(br.rings)]};font-family:var(--f-mono)">${z.toFixed(2)} m · ${br.rings}줄</span></div>`; }).join("");
-    const Ls = lidarsW(); const guide = []; for (let z = 0.6; z <= 3.21; z += 0.2) { const r = scanBoard(boardFrame(s.x, s.y, z), Ls, false); guide.push([z, r.rings, r.lidar]); }
-    const mx = Math.max(1, ...guide.map(g => g[1])), bestZ = guide.reduce((a, b) => b[1] > a[1] ? b : a);
-    const gHtml = guide.slice().reverse().map(([z, r, l]) => { const cur = s.z.some(q => Math.abs(q - z) < 0.11); return `<div class="gbar ${r === bestZ[1] ? "best" : ""} ${cur ? "cur" : ""}"><span>${z.toFixed(1)} m</span><div class="tr"><div class="fl" style="width:${(r / mx * 100).toFixed(0)}%"></div></div><span>${r}줄</span></div>`; }).join("");
-    body.innerHTML = `<div class="boards">${rows}</div>
-      <div class="hint" style="margin-top:6px">이 위치에서 보드 중심 높이별 라이다 라인 수 (가장 많이 맞는 라이다 기준 · ${VEH[key].lnote})</div>
-      <div class="guide">${gHtml}</div>
-      <div class="hint">가장 잘 잡히는 높이: <b style="color:var(--ok)">${bestZ[0].toFixed(1)} m (${bestZ[1]}줄, ${bestZ[2] || "–"})</b> · 노란 글씨 = 현재 보드 높이</div>`;
-    body.querySelectorAll("input[type=range]").forEach(inp => inp.addEventListener("input", e => { stands[sel].z[+e.target.dataset.j] = parseFloat(e.target.value); save(); update(true, true); }));
+      b.onclick = () => { focus = focus === r.name ? null : r.name; build3d(true); panels(false); }; box.appendChild(b); });
+    const sb = $("sensors"); sb.innerHTML = "";
+    S.sensors.forEach((s, i) => { const b = document.createElement("button"); b.className = "chipb " + (s.kind === "cam" ? "scam" : "slid"); b.textContent = (s.kind === "cam" ? "◉ " : "▣ ") + s.name; b.setAttribute("aria-pressed", isSel("sensor", i) ? "true" : "false"); b.onclick = () => { sel = { kind: "sensor", i }; refresh(); }; sb.appendChild(b); });
+    if (full) editor();
   }
-  let pending = null;
-  function update(full, keepPanel) {
-    evaluate(true); draw2d(); build3d();
-    if (keepPanel) { // only refresh numbers without rebuilding sliders
-      if (pending) clearTimeout(pending); pending = setTimeout(() => { const ae = document.activeElement; const j = ae && ae.dataset ? ae.dataset.j : null; panels(); if (j !== null && j !== undefined) { const el = document.querySelector(`#sel-body input[data-j="${j}"]`); if (el) el.focus(); } }, 120);
-    } else panels();
-  }
-  // ---------- interaction ----------
-  function pos(e) { const r = cv.getBoundingClientRect(); return [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; }
-  function inVehicle(wx, wy) { const b = VEH[key].body; const c = Math.cos(-pose.yaw * D2R), s = Math.sin(-pose.yaw * D2R); const dx = wx - pose.x, dy = wy - pose.y; const lx = c * dx - s * dy, ly = s * dx + c * dy; return lx >= b[0] && lx <= b[1] && Math.abs(ly) <= b[2]; }
-  cv.addEventListener("pointerdown", e => { const [px, py] = pos(e); let best = -1, bd = 28; stands.forEach((s, i) => { const [sx, sy] = W2C(s.x, s.y); const d = Math.hypot(sx - px, sy - py); if (d < bd) { bd = d; best = i; } });
-    const [wx, wy] = C2W(px, py);
-    if (best >= 0) { sel = best; drag = { i: best }; } else if (inVehicle(wx, wy)) { drag = { veh: true, ox: wx - pose.x, oy: wy - pose.y }; } else { sel = -1; }
-    if (drag) { cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; } update(true); });
-  cv.addEventListener("pointermove", e => { if (!drag) return; const [px, py] = pos(e); const [x, y] = C2W(px, py);
-    if (drag.veh) { pose.x = Math.round((x - drag.ox) * 10) / 10; pose.y = Math.round((y - drag.oy) * 10) / 10; } else { stands[drag.i].x = Math.round(x * 10) / 10; stands[drag.i].y = Math.round(y * 10) / 10; }
-    evaluate(false); draw2d(); });
-  const end = () => { if (drag) { drag = null; cv.style.cursor = "grab"; save(); update(true); } };
-  cv.addEventListener("pointerup", end); cv.addEventListener("pointercancel", end);
-  function add(z) { const [x, y] = vehCenter(); stands.push({ x: Math.round((x + 5) * 10) / 10, y: Math.round((y + (Math.random() - .5) * 4) * 10) / 10, z }); sel = stands.length - 1; save(); update(true); }
-  $("add-t").onclick = () => add(TOWER.slice()); $("add-h").onclick = () => add([2.6]); $("add-m").onclick = () => add([1.6]);
-  $("del").onclick = () => { if (sel >= 0) { stands.splice(sel, 1); sel = -1; save(); update(true); } };
-  $("reset").onclick = () => { try { localStorage.removeItem(KS + key); } catch (e) {} camSet = null; load(key, true); };
+  function refresh() { evaluate(true); build3d(true); panels(true); }
+  // ---------- toolbar ----------
+  function addStand(z) { const [cx, cy] = vehCenter(S); const x = r1(cx + (S.body[1] - S.body[0]) / 2 + 4), y = r1(cy + (Math.random() - .5) * 4); const s = { x, y, z, yaw: faceYaw(S, x, y) }; s.o = { x, y, yaw: s.yaw }; S.stands.push(s); sel = { kind: "stand", i: S.stands.length - 1 }; save(); refresh(); }
+  $("add-t").onclick = () => addStand(TOWER.slice()); $("add-h").onclick = () => addStand([2.6]); $("add-m").onclick = () => addStand([1.6]);
+  function addSensor(kind) { const b = S.body, n = S.sensors.filter(s => s.kind === kind).length + 1;
+    const s = kind === "cam" ? { kind, name: "새 카메라 " + n, x: r2(b[1] - 0.1), y: 0, z: r2(Math.min(b[3] - 0.2, 2.0)), yaw: 0, pitch: 0, hfov: 120 } : { kind, name: "새 라이다 " + n, model: "OT128", x: r2((b[0] + b[1]) / 2), y: 0, z: r2(b[3] + 0.2), roll: 0, pitch: 0, yaw: 0 };
+    S.sensors.push(s); sel = { kind: "sensor", i: S.sensors.length - 1 }; save(); refresh(); }
+  $("add-c").onclick = () => addSensor("cam"); $("add-l").onclick = () => addSensor("lid");
+  $("reset").onclick = () => { try { localStorage.removeItem(KS + key); } catch (e) {} load(key, true); };
   $("veh").onchange = e => { location.hash = e.target.value; };
-  document.querySelectorAll("[data-mv]").forEach(b => b.onclick = () => { const [dx, dy] = b.dataset.mv.split(",").map(Number); pose.x = Math.round((pose.x + dx * 0.1) * 10) / 10; pose.y = Math.round((pose.y + dy * 0.1) * 10) / 10; save(); update(true); });
-  function syncRot() { $("rot").value = pose.yaw; $("rot-o").textContent = pose.yaw + "°"; }
-  const setYaw = y => { pose.yaw = ((Math.round(y) + 540) % 360) - 180; syncRot(); save(); update(true); };
-  $("rot").addEventListener("input", e => setYaw(+e.target.value));
-  $("rl").onclick = () => setYaw(pose.yaw + 5); $("rr").onclick = () => setYaw(pose.yaw - 5);
-  $("vreset").onclick = () => { pose = { x: 0, y: 0, yaw: 0 }; syncRot(); save(); update(true); };
-  $("copy").onclick = () => { const t = `${VEH[key].name} 배치 (x 전방, y 좌측, m)\n차량: x=${pose.x} y=${pose.y} 회전=${pose.yaw}°\n` + stands.map((s, i) => `${i + 1}. ${s.z.length > 1 ? "3단 캘판" : "단독 보드"}  x=${s.x.toFixed(1)}  y=${s.y.toFixed(1)}  높이=${s.z.map(z => z.toFixed(2)).join("/")} m`).join("\n");
+  $("copy").onclick = () => {
+    const t = [`${PRE[key].name} 배치 (x 전방, y 좌측, m)`, `차량: x=${S.pose.x} y=${S.pose.y} 방향=${S.pose.yaw}°`, "[캘판]",
+      ...S.stands.map((s, i) => `${i + 1}. ${s.z.length > 1 ? "3단 캘판" : "단독 캘판"}  x=${s.x.toFixed(1)}  y=${s.y.toFixed(1)}  방향=${s.yaw}°  높이=${s.z.map(z => z.toFixed(2)).join("/")} m`), "[센서 · 차량 기준]",
+      ...S.sensors.map(s => `${s.kind === "cam" ? "카메라" : "라이다"} ${s.name}  x=${s.x} y=${s.y} z=${s.z} 방향=${s.yaw}° ${s.kind === "cam" ? "화각=" + s.hfov + "°" : LMODEL[s.model].label}`)].join("\n");
     const done = m => { $("copied").textContent = m; setTimeout(() => $("copied").textContent = "", 2500); };
     if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => done("복사됨"), () => done("복사 실패: 브라우저가 막음")); else done("복사 미지원"); };
-  window.addEventListener("keydown", e => { if ((e.key === "Delete") && sel >= 0 && e.target === document.body) { stands.splice(sel, 1); sel = -1; save(); update(true); } });
-  function route() { const k = (location.hash || "").slice(1); camSet = null; load(VEH[k] ? k : "fantag"); }
+  window.addEventListener("keydown", e => { if (e.key === "Escape") { sel = null; refresh(); } });
+  function route() { const k = (location.hash || "").slice(1); load(PRE[k] ? k : "fantag"); }
   window.addEventListener("hashchange", route); route(); loop();
 })();
 </script>
