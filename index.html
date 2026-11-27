@@ -14,13 +14,13 @@
 }
 html, body { height: 100%; }
 body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); }
-.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 12px; gap: 10px; box-sizing: border-box; }
+.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 24px 16px; gap: 14px; box-sizing: border-box; }
 header { display: grid; gap: 10px; }
-.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 18px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; padding: 4px 12px 4px 4px; }
 .brand { font-weight: 700; letter-spacing: .02em; }
 .brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; }
-.links { display: flex; gap: 6px; flex-wrap: wrap; }
-.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; }
+.links { display: flex; gap: 10px; flex-wrap: wrap; }
+.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px; }
 .links a:hover { color: var(--fg); border-color: var(--sky); }
 .links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
 .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -34,11 +34,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .lbl { position: absolute; transform: translate(-50%, -130%); font: 500 11px var(--f-mono); color: var(--fg); background: rgba(11,17,24,.72); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
 .lbl.lcam { color: var(--sky); } .lbl.warn { color: var(--warn); } .lbl.board { color: var(--board); font-size: 10px; background: transparent; }
 .lbl.dim { opacity: .25; }
-.hud { position: absolute; left: 10px; top: 10px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.hud { position: absolute; left: 16px; top: 16px; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
 .hud .t { font-weight: 700; font-size: 18px; } .hud .s { color: var(--muted); font-size: 12px; }
-.view { position: absolute; right: 10px; top: 10px; display: flex; gap: 4px; }
+.view { position: absolute; right: 16px; top: 16px; display: flex; gap: 6px; }
 .view button { font: 500 12px var(--f-ui); color: var(--fg); background: rgba(18,27,38,.85); border: 1px solid var(--line); border-radius: 6px; padding: 4px 9px; cursor: pointer; }
-.legend { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.legend { position: absolute; left: 16px; bottom: 14px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); pointer-events: none; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .04em; }
