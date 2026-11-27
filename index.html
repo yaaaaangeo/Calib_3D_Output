@@ -27,7 +27,7 @@ header { display: grid; gap: 10px; }
 .tab { font: 600 13px var(--f-ui); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; cursor: pointer; }
 .tab[aria-selected="true"] { color: #fff; background: var(--sky); border-color: var(--sky); }
 .tab:focus-visible, .cam:focus-visible, .view button:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
-main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 10px; min-height: 0; }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 10px; min-height: 0; }
 .stage { position: relative; min-height: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #13202d, var(--bg) 70%); }
 canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 .labels { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
@@ -49,6 +49,16 @@ aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; le
 .cam dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 10px; font-size: 12px; }
 .cam dt { color: var(--muted); } .cam dd { margin: 0; font-family: var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
 .pill { font: 600 10px var(--f-ui); padding: 1px 6px; border-radius: 999px; background: rgba(232,184,74,.15); color: var(--warn); }
+.row2b { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 18px; padding-right: 12px; }
+.mode, .seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.mode button, .seg button { font: 600 12px var(--f-ui); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+.mode button[aria-pressed="true"], .seg button[aria-pressed="true"] { color: #fff; background: var(--navy); border-color: var(--sky); }
+#chk { display: grid; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+#chk[hidden] { display: none; }
+#chk canvas { width: 100%; border-radius: 6px; background: #000; }
+#chk .hint { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.5; } #chk .hint b { color: var(--fg); }
+.sz { display: grid; grid-template-columns: 56px minmax(0, 1fr) 52px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.sz input { width: 100%; accent-color: var(--sky); } .sz output { font: 12px var(--f-mono); color: var(--fg); text-align: right; }
 .note { font-size: 12px; color: var(--muted); line-height: 1.5; border-top: 1px solid var(--line); padding-top: 8px; }
 @media (max-width: 820px) {
   .app { height: auto; min-height: 100%; }
@@ -62,7 +72,8 @@ aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; le
   <header>
     <div class="hrow"><div class="brand">SMOBI-Calib 3D Viewer<small>카메라–LiDAR 캘리브레이션 결과를 3D 공간에서 보기</small></div>
       <div class="links"><a href="./planner.html">거치대 배치 플래너</a><a href="./" aria-current="page">3D 뷰어</a></div></div>
-    <nav class="tabs" role="tablist" id="tabs"></nav>
+    <div class="row2b"><nav class="tabs" role="tablist" id="tabs"></nav>
+      <div class="mode" role="group" aria-label="보기 방식"><button data-m="result" aria-pressed="true">캘리브레이션 결과</button><button data-m="check" aria-pressed="false">정합 확인 (가상 환경)</button></div></div>
   </header>
   <main>
     <div class="stage" id="stage">
@@ -72,13 +83,25 @@ aside h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; le
       <div class="view"><button id="v-chase">뒤에서</button><button id="v-top">위에서</button><button id="v-side">옆에서</button></div>
       <div class="legend"><span><i style="background:var(--sky)"></i>카메라 시야</span><span><i style="background:var(--warn)"></i>보드 3쌍 미만</span><span><i style="background:var(--board)"></i>보드 (구멍 4개)</span><span><i style="background:#7fe0c4"></i>LiDAR</span><span>드래그 회전 · 휠/핀치 확대</span></div>
     </div>
-    <aside><h2>카메라 · 클릭하면 강조</h2><div id="list" style="display:grid;gap:8px"></div><div class="note" id="note"></div></aside>
+    <aside>
+      <section id="chk" hidden>
+        <h2>정합 확인 · <span id="chk-cam"></span></h2>
+        <canvas id="chk-img" width="640" height="400" aria-label="가상 카메라 영상 위에 투영한 라이다 점"></canvas>
+        <p class="hint">가상 룸에서 카메라 영상(배경)에 라이다 점(색 = 거리)을 이 결과의 외부 파라미터로 투영했습니다. 점이 캘판 구멍·벽 경계에 맞으면 정합이 잘 된 것입니다.</p>
+        <div class="seg" role="group" aria-label="오차 크기"><button data-k="0" aria-pressed="false">오차 없음</button><button data-k="1" aria-pressed="true">결과 오차</button><button data-k="3" aria-pressed="false">오차 ×3</button></div>
+        <div class="hint" id="chk-err"></div>
+        <div class="seg" role="group" aria-label="3D 표시"><button data-v="color" aria-pressed="true">색 입힌 점군</button><button data-v="both" aria-pressed="false">점군 + 환경</button><button data-v="env" aria-pressed="false">가상 환경</button></div>
+        <label class="sz">점 크기<input type="range" id="chk-size" min="0.01" max="0.12" step="0.005" value="0.035"><output id="chk-size-o" for="chk-size">35 mm</output></label>
+        <div class="hint" id="chk-note"></div>
+        <p class="hint">색 입힌 점군: 카메라 영상의 픽셀 색을 점마다 입힌 것. 정합이 맞으면 3D 점군이 영상처럼 보이고, 틀리면 캘판 무늬·벽 색이 옆 물체로 번집니다. 카메라는 아래 목록에서 고르세요.</p>
+      </section>
+      <h2>카메라 · 클릭하면 강조</h2><div id="list" style="display:grid;gap:8px"></div><div class="note" id="note"></div></aside>
   </main>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script>
-const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiDAR 1대 · 카메라 8대 · LiDAR 기준", "frame": "LiDAR", "vehicle": {"x": [-2.05, 2.6], "y": [-0.95, 0.95], "z": [-2.1, -0.5]}, "ground": -2.1, "lidars": [{"name": "LiDAR", "p": [0, 0, 0]}], "cams": [{"name": "cam4", "p": [2.365, 1.214, -1.841], "R": [[0.992, 0.115, -0.054], [-0.074, 0.176, -0.982], [-0.103, 0.978, 0.183]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "7.8 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true}, {"name": "cam5", "p": [1.692, -0.991, -1.815], "R": [[-0.24, -0.966, 0.09], [-0.001, -0.093, -0.996], [0.971, -0.239, 0.021]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "13.2 mm"], ["영상 오차", "2.00 px"], ["위치 σ (7회)", "40.7 mm"], ["회전 σ (7회)", "0.51°"]], "warn": false}, {"name": "cam6", "p": [1.609, 1.061, -1.702], "R": [[0.164, -0.984, -0.069], [0.15, 0.094, -0.984], [0.975, 0.151, 0.163]], "fov": 120, "stats": [["보드", "4쌍"], ["RMSE", "29.1 mm"], ["영상 오차", "3.52 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false}, {"name": "cam7", "p": [1.851, -1.882, -1.709], "R": [[-0.994, 0.079, 0.08], [-0.089, -0.114, -0.99], [-0.069, -0.99, 0.12]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "3.46 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true}, {"name": "front", "p": [1.35, 0.059, -0.961], "R": [[-0.042, -0.999, 0.017], [0.05, -0.019, -0.999], [0.998, -0.041, 0.05]], "fov": 120, "stats": [["보드", "8쌍"], ["RMSE", "25.1 mm"], ["영상 오차", "2.50 px"], ["위치 σ (7회)", "10.2 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false}, {"name": "left", "p": [1.704, 0.935, -1.419], "R": [[0.994, 0.087, -0.058], [-0.065, 0.083, -0.994], [-0.082, 0.993, 0.088]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "5.9 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true}, {"name": "right", "p": [1.791, -0.938, -1.294], "R": [[-0.998, 0.046, 0.035], [-0.039, -0.089, -0.995], [-0.043, -0.995, 0.091]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "2.84 px"], ["위치 σ (7회)", "8.6 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true}, {"name": "rear", "p": [-2.0, 0.0, -1.3], "R": [[0, 1, 0], [0, 0, -1], [-1, 0, 0]], "fov": 120, "stats": [["보드", "0쌍"], ["상태", "보드가 보이지 않아 풀이 제외"]], "warn": true, "approx": true}], "boards": [{"label": "L0", "c": [0.23, 2.972, -0.877], "u": [0.802, 0.597, 0.007], "v": [-0.033, 0.033, 0.999], "n": [0.596, -0.802, 0.046], "holes": [[0.023, 2.829, -0.679], [0.424, 3.128, -0.675], [0.437, 3.114, -1.075], [0.036, 2.816, -1.078]], "cams": ["cam4", "left"]}, {"label": "L5", "c": [5.931, -1.946, -1.612], "u": [-0.55, -0.835, 0.012], "v": [0.467, -0.296, 0.834], "n": [-0.692, 0.464, 0.552], "holes": [[6.162, -1.797, -1.448], [5.887, -2.214, -1.442], [5.7, -2.096, -1.776], [5.975, -1.679, -1.782]], "cams": ["cam5", "front"]}, {"label": "L6", "c": [6.008, -1.977, 0.31], "u": [-0.579, -0.81, 0.09], "v": [-0.259, 0.288, 0.922], "n": [-0.773, 0.51, -0.377], "holes": [[6.087, -1.732, 0.48], [5.804, -2.139, 0.51], [6.208, -1.812, 0.124], [5.932, -2.227, 0.128]], "cams": ["cam5", "front"]}, {"label": "L7", "c": [6.169, -2.085, -0.664], "u": [-0.554, -0.832, -0.034], "v": [-0.026, -0.023, 0.999], "n": [-0.832, 0.554, -0.009], "holes": [[6.306, -1.884, -0.855], [6.034, -2.291, -0.864], [6.307, -1.876, -0.468], [6.03, -2.291, -0.468]], "cams": ["cam5", "front"]}, {"label": "L1", "c": [3.791, 2.597, 0.209], "u": [-0.799, 0.602, 0.001], "v": [-0.303, -0.404, 0.863], "n": [0.52, 0.689, 0.505], "holes": [[4.049, 2.524, 0.043], [3.931, 2.37, 0.375], [3.648, 2.824, 0.045], [3.536, 2.668, 0.374]], "cams": ["cam6", "front"]}, {"label": "L2", "c": [5.962, 2.099, -0.7], "u": [-0.678, 0.735, 0.001], "v": [0.009, 0.007, 1.0], "n": [0.735, 0.678, -0.011], "holes": [[6.132, 1.919, -0.499], [6.133, 1.911, -0.895], [5.791, 2.289, -0.505], [5.793, 2.279, -0.902]], "cams": ["cam6", "front"]}, {"label": "L3", "c": [5.82, 1.974, 0.278], "u": [-0.677, 0.735, -0.014], "v": [-0.285, -0.245, 0.927], "n": [0.678, 0.632, 0.376], "holes": [[6.044, 1.845, 0.092], [5.938, 1.737, 0.465], [5.707, 2.209, 0.089], [5.593, 2.106, 0.467]], "cams": ["cam6", "front"]}, {"label": "L4", "c": [5.753, 1.905, -1.64], "u": [0.673, -0.74, -0.005], "v": [0.421, 0.377, 0.825], "n": [-0.608, -0.558, 0.565], "holes": [[5.669, 2.165, -1.473], [6.006, 1.796, -1.476], [5.837, 1.645, -1.806], [5.501, 2.015, -1.803]], "cams": ["cam6", "front"]}, {"label": "L9", "c": [0.061, -3.362, -0.767], "u": [-0.681, 0.715, -0.157], "v": [-0.133, 0.09, 0.987], "n": [0.72, 0.693, 0.034], "holes": [[0.246, -3.545, -0.954], [0.223, -3.541, -0.543], [-0.105, -3.179, -0.992], [-0.119, -3.184, -0.578]], "cams": ["cam7", "right"]}, {"label": "L8", "c": [3.717, -2.639, 0.26], "u": [-0.686, -0.728, -0.017], "v": [-0.385, 0.343, 0.857], "n": [-0.618, 0.594, -0.515], "holes": [[3.808, -2.394, 0.434], [3.963, -2.524, 0.097], [3.473, -2.75, 0.425], [3.624, -2.886, 0.085]], "cams": ["front"]}], "note": "보드 1쌍 카메라(cam4·left·cam7·right)는 위치 추정이 불안정해 실제 장착 위치와 다를 수 있음"}, "eleccity": {"title": "판타G Eleccity", "sub": "2026-11-20 · 23 · 카메라 6대 · vehicle 기준 (원점 = 지면)", "frame": "vehicle", "vehicle": {"x": [-3.3, 7.9], "y": [-1.25, 1.25], "z": [0.25, 3.2]}, "ground": 0.0, "lidars": [{"name": "vehicle 원점", "p": [0, 0, 0]}], "cams": [{"name": "top_center", "p": [7.575, -0.055, 2.182], "R": [[-0.008, -1.0, -0.012], [0.02, 0.012, -1.0], [1.0, -0.008, 0.02]], "fov": 54, "stats": [["보드", "6쌍"], ["RMSE", "37.1 mm"], ["영상 오차", "10.02 px"], ["렌즈", "HFOV 54°"]], "warn": false}, {"name": "bottom_center", "p": [7.474, -0.09, 2.216], "R": [[-0.007, -1.0, -0.009], [0.021, 0.009, -1.0], [1.0, -0.007, 0.021]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "34.7 mm"], ["영상 오차", "5.62 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "left_front", "p": [7.416, 1.253, 2.75], "R": [[0.019, -0.999, -0.043], [0.048, 0.044, -0.998], [0.999, 0.017, 0.049]], "fov": 120, "stats": [["보드", "7쌍"], ["RMSE", "59.9 mm"], ["영상 오차", "5.97 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "right_front", "p": [7.421, -1.332, 2.745], "R": [[0.038, -0.999, -0.009], [-0.028, 0.008, -1.0], [0.999, 0.038, -0.028]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "27.7 mm"], ["영상 오차", "4.38 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "left_rear", "p": [7.312, 1.324, 2.73], "R": [[0.77, 0.636, 0.048], [0.021, 0.05, -0.999], [-0.637, 0.77, 0.025]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "32.7 mm"], ["영상 오차", "4.46 px"], ["렌즈", "HFOV 128.7°"]], "warn": false}, {"name": "right_rear", "p": [7.232, -1.297, 2.753], "R": [[-0.816, 0.578, -0.01], [0.007, -0.006, -1.0], [-0.578, -0.816, 0.001]], "fov": 120, "stats": [["보드", "2쌍"], ["RMSE", "35.2 mm"], ["영상 오차", "8.29 px"], ["렌즈", "HFOV 128.7°"]], "warn": true}], "boards": [{"label": "L1", "c": [12.712, 1.869, 2.828], "u": [0.65, -0.759, -0.035], "v": [-0.269, -0.273, 0.924], "n": [-0.711, -0.591, -0.381], "holes": [[12.495, 2.004, 3.021], [12.82, 1.625, 3.004], [12.928, 1.734, 2.634], [12.603, 2.114, 2.652]], "cams": ["top_center"]}, {"label": "L2", "c": [12.6, -2.058, 0.821], "u": [-0.596, -0.803, -0.013], "v": [0.424, -0.328, 0.844], "n": [-0.682, 0.498, 0.537], "holes": [[12.834, -1.923, 0.993], [12.536, -2.324, 0.987], [12.366, -2.193, 0.649], [12.664, -1.791, 0.655]], "cams": ["top_center"]}, {"label": "L3", "c": [12.673, -2.088, 2.773], "u": [-0.602, -0.799, -0.003], "v": [-0.273, 0.202, 0.941], "n": [-0.751, 0.567, -0.339], "holes": [[12.769, -1.848, 2.962], [12.468, -2.247, 2.961], [12.577, -2.328, 2.584], [12.878, -1.929, 2.586]], "cams": ["top_center"]}, {"label": "L4", "c": [12.811, -2.195, 1.784], "u": [-0.589, -0.808, 0.011], "v": [0.009, 0.006, 1.0], "n": [-0.808, 0.589, 0.004], "holes": [[12.961, -1.991, 1.982], [12.666, -2.395, 1.987], [12.662, -2.398, 1.587], [12.957, -1.994, 1.582]], "cams": ["top_center"]}, {"label": "P6", "c": [12.844, 2.007, 1.773], "u": [0.638, -0.769, 0.039], "v": [-0.045, 0.014, 0.999], "n": [-0.769, -0.639, -0.026], "holes": [[12.676, 2.202, 1.963], [12.995, 1.818, 1.983], [13.012, 1.812, 1.583], [12.694, 2.197, 1.564]], "cams": ["top_center"]}, {"label": "P7", "c": [12.622, 1.838, 0.844], "u": [0.651, -0.759, 0.019], "v": [0.395, 0.36, 0.845], "n": [-0.648, -0.542, 0.534], "holes": [[12.539, 2.099, 1.008], [12.864, 1.72, 1.018], [12.706, 1.576, 0.68], [12.381, 1.955, 0.67]], "cams": ["top_center"]}, {"label": "L1", "c": [11.22, 2.008, 1.788], "u": [0.637, -0.771, 0.019], "v": [-0.052, -0.018, 0.999], "n": [-0.769, -0.637, -0.051], "holes": [[11.05, 2.197, 1.983], [11.368, 1.811, 1.992], [11.389, 1.818, 1.593], [11.071, 2.204, 1.583]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L2", "c": [11.104, 1.876, 2.798], "u": [0.641, -0.767, -0.019], "v": [-0.252, -0.233, 0.939], "n": [-0.725, -0.598, -0.343], "holes": [[10.893, 2.022, 2.99], [11.214, 1.638, 2.981], [11.314, 1.731, 2.605], [10.994, 2.115, 2.615]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L3", "c": [11.001, 1.837, 0.834], "u": [0.645, -0.764, 0.005], "v": [0.414, 0.355, 0.838], "n": [-0.642, -0.538, 0.546], "holes": [[10.923, 2.099, 1.0], [11.245, 1.717, 1.003], [11.08, 1.575, 0.668], [10.757, 1.957, 0.665]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L4", "c": [10.971, -2.035, 0.815], "u": [-0.606, -0.795, -0.03], "v": [0.408, -0.343, 0.846], "n": [-0.683, 0.501, 0.532], "holes": [[11.204, -1.905, 0.991], [10.901, -2.302, 0.977], [10.738, -2.165, 0.638], [11.041, -1.768, 0.653]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L5", "c": [11.072, -2.095, 2.762], "u": [-0.6, -0.8, -0.003], "v": [-0.289, 0.213, 0.933], "n": [-0.746, 0.561, -0.359], "holes": [[11.164, -1.853, 2.949], [10.864, -2.253, 2.948], [10.98, -2.338, 2.574], [11.279, -1.938, 2.576]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L6", "c": [11.183, -2.212, 1.772], "u": [-0.601, -0.798, 0.035], "v": [0.021, 0.028, 0.999], "n": [-0.799, 0.602, 0.0], "holes": [[11.338, -2.006, 1.963], [11.037, -2.406, 1.98], [11.029, -2.417, 1.581], [11.329, -2.017, 1.563]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L0", "c": [8.843, 2.919, 2.76], "u": [0.639, -0.769, -0.015], "v": [-0.381, -0.333, 0.862], "n": [-0.668, -0.545, -0.506], "holes": [[8.607, 3.044, 2.936], [8.926, 2.66, 2.929], [9.079, 2.793, 2.584], [8.759, 3.178, 2.591]], "cams": ["left_front"]}, {"label": "L0", "c": [2.661, 2.658, 1.777], "u": [-0.646, -0.76, -0.072], "v": [-0.05, -0.052, 0.997], "n": [-0.761, 0.648, -0.005], "holes": [[2.813, 2.838, 1.995], [2.489, 2.458, 1.959], [2.509, 2.479, 1.56], [2.833, 2.858, 1.596]], "cams": ["left_rear"]}, {"label": "L1", "c": [2.796, 2.488, 2.784], "u": [0.651, 0.759, 0.002], "v": [0.299, -0.258, 0.919], "n": [0.698, -0.598, -0.395], "holes": [[2.693, 2.247, 2.967], [3.019, 2.626, 2.968], [2.899, 2.73, 2.6], [2.574, 2.35, 2.599]], "cams": ["left_rear"]}, {"label": "L2", "c": [2.874, 2.48, 0.818], "u": [-0.65, -0.76, 0.0], "v": [-0.414, 0.355, 0.838], "n": [-0.637, 0.545, -0.545], "holes": [[2.954, 2.741, 0.985], [2.629, 2.361, 0.985], [2.795, 2.219, 0.65], [3.12, 2.599, 0.65]], "cams": ["left_rear"]}, {"label": "L0", "c": [4.253, -2.771, 0.787], "u": [-0.958, 0.286, 0.01], "v": [-0.151, -0.535, 0.831], "n": [0.243, 0.795, 0.556], "holes": [[4.463, -2.949, 0.951], [3.984, -2.807, 0.956], [4.044, -2.593, 0.624], [4.523, -2.735, 0.619]], "cams": ["right_rear"]}, {"label": "L1", "c": [4.177, -2.863, 2.766], "u": [-0.957, 0.291, -0.006], "v": [0.085, 0.301, 0.95], "n": [0.278, 0.908, -0.313], "holes": [[4.433, -2.875, 2.958], [3.955, -2.73, 2.954], [3.921, -2.85, 2.575], [4.399, -2.996, 2.578]], "cams": ["right_rear"]}], "note": "right_rear는 보드 2쌍으로 신뢰도 낮음 (3쌍 이상 권장)"}, "torres": {"title": "토레스", "sub": "Torres 03 · 2026-09-14 / 16 · LiDAR 3대 · 카메라 6대 · base_link 기준", "frame": "base_link", "vehicle": {"x": [-0.95, 3.75], "y": [-0.95, 0.95], "z": [0.2, 1.7]}, "ground": 0.0, "lidars": [{"name": "ot128", "p": [1.037, -0.012, 1.954]}, {"name": "qt128_left", "p": [1.018, 0.517, 1.758]}, {"name": "qt128_right", "p": [1.025, -0.544, 1.746]}], "cams": [{"name": "front_center_wide", "kr": "앞유리 중앙", "p": [2.043, -0.104, 1.335], "R": [[-0.003, -1.0, -0.003], [-0.021, 0.003, -1.0], [1.0, -0.003, -0.021]], "fov": 150, "stats": [["설치 위치", "앞유리 중앙"], ["각도 오차", "0.085°"], ["3D RMSE", "15.4 mm"], ["내부 RMS", "2.42 px"]], "warn": false}, {"name": "roof_left", "kr": "루프 좌측", "p": [1.655, 0.641, 1.619], "R": [[0.694, -0.72, 0.032], [0.022, -0.023, -0.999], [0.72, 0.694, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 좌측"], ["각도 오차", "0.086°"], ["3D RMSE", "25.5 mm"], ["내부 RMS", "1.02 px"]], "warn": false}, {"name": "roof_right", "kr": "루프 우측", "p": [1.563, -0.549, 1.593], "R": [[-0.679, -0.732, -0.047], [0.032, 0.034, -0.999], [0.733, -0.68, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 우측"], ["각도 오차", "0.084°"], ["3D RMSE", "17.3 mm"], ["내부 RMS", "1.41 px"]], "warn": false}, {"name": "rear_left", "kr": "좌측 후방", "p": [2.32, 0.915, 0.771], "R": [[0.86, 0.511, -0.016], [-0.024, 0.009, -1.0], [-0.51, 0.86, 0.02]], "fov": 150, "stats": [["설치 위치", "좌측 후방"], ["각도 오차", "0.127°"], ["3D RMSE", "16.4 mm"], ["내부 RMS", "1.69 px"]], "warn": false}, {"name": "rear_center", "kr": "후면 중앙", "p": [-0.773, -0.024, 1.456], "R": [[-0.019, 1.0, 0.009], [0.03, 0.01, -0.999], [-0.999, -0.019, -0.03]], "fov": 150, "stats": [["설치 위치", "후면 중앙"], ["각도 오차", "0.168°"], ["3D RMSE", "12.5 mm"], ["내부 RMS", "2.39 px"]], "warn": false}, {"name": "rear_right", "kr": "우측 후방", "p": [2.295, -0.899, 0.742], "R": [[-0.862, 0.506, -0.001], [0.021, 0.033, -0.999], [-0.506, -0.862, -0.039]], "fov": 150, "stats": [["설치 위치", "우측 후방"], ["각도 오차", "0.169°"], ["3D RMSE", "27.7 mm"], ["내부 RMS", "1.25 px"]], "warn": false}], "boards": [], "note": "보드 좌표 기록이 없어 센서 배치만 표시 · 평균 각도 오차 0.120°, 3D RMSE 19.1 mm"}};
+const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiDAR 1대 · 카메라 8대 · LiDAR 기준", "frame": "LiDAR", "vehicle": {"x": [-2.05, 2.6], "y": [-0.95, 0.95], "z": [-2.1, -0.5]}, "ground": -2.1, "lidars": [{"name": "LiDAR", "p": [0, 0, 0]}], "cams": [{"name": "cam4", "p": [2.365, 1.214, -1.841], "R": [[0.992, 0.115, -0.054], [-0.074, 0.176, -0.982], [-0.103, 0.978, 0.183]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "7.8 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true, "err": {"px": 0.0, "mm": 0.0}}, {"name": "cam5", "p": [1.692, -0.991, -1.815], "R": [[-0.24, -0.966, 0.09], [-0.001, -0.093, -0.996], [0.971, -0.239, 0.021]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "13.2 mm"], ["영상 오차", "2.00 px"], ["위치 σ (7회)", "40.7 mm"], ["회전 σ (7회)", "0.51°"]], "warn": false, "err": {"px": 1.997, "mm": 13.2}}, {"name": "cam6", "p": [1.609, 1.061, -1.702], "R": [[0.164, -0.984, -0.069], [0.15, 0.094, -0.984], [0.975, 0.151, 0.163]], "fov": 120, "stats": [["보드", "4쌍"], ["RMSE", "29.1 mm"], ["영상 오차", "3.52 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false, "err": {"px": 3.525, "mm": 29.1}}, {"name": "cam7", "p": [1.851, -1.882, -1.709], "R": [[-0.994, 0.079, 0.08], [-0.089, -0.114, -0.99], [-0.069, -0.99, 0.12]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "3.46 px"], ["위치 σ (7회)", "8.1 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true, "err": {"px": 3.456, "mm": 9.8}}, {"name": "front", "p": [1.35, 0.059, -0.961], "R": [[-0.042, -0.999, 0.017], [0.05, -0.019, -0.999], [0.998, -0.041, 0.05]], "fov": 120, "stats": [["보드", "8쌍"], ["RMSE", "25.1 mm"], ["영상 오차", "2.50 px"], ["위치 σ (7회)", "10.2 mm"], ["회전 σ (7회)", "0.12°"]], "warn": false, "err": {"px": 2.495, "mm": 25.1}}, {"name": "left", "p": [1.704, 0.935, -1.419], "R": [[0.994, 0.087, -0.058], [-0.065, 0.083, -0.994], [-0.082, 0.993, 0.088]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "0.0 mm"], ["영상 오차", "0.00 px"], ["위치 σ (7회)", "5.9 mm"], ["회전 σ (7회)", "0.31°"]], "warn": true, "err": {"px": 0.0, "mm": 0.0}}, {"name": "right", "p": [1.791, -0.938, -1.294], "R": [[-0.998, 0.046, 0.035], [-0.039, -0.089, -0.995], [-0.043, -0.995, 0.091]], "fov": 120, "stats": [["보드", "1쌍"], ["RMSE", "9.8 mm"], ["영상 오차", "2.84 px"], ["위치 σ (7회)", "8.6 mm"], ["회전 σ (7회)", "0.40°"]], "warn": true, "err": {"px": 2.838, "mm": 9.8}}, {"name": "rear", "p": [-2.0, 0.0, -1.3], "R": [[0, 1, 0], [0, 0, -1], [-1, 0, 0]], "fov": 120, "stats": [["보드", "0쌍"], ["상태", "보드가 보이지 않아 풀이 제외"]], "warn": true, "approx": true, "err": {"px": 0, "mm": 0}}], "boards": [{"label": "L0", "c": [0.23, 2.972, -0.877], "u": [0.802, 0.597, 0.007], "v": [-0.033, 0.033, 0.999], "n": [0.596, -0.802, 0.046], "holes": [[0.023, 2.829, -0.679], [0.424, 3.128, -0.675], [0.437, 3.114, -1.075], [0.036, 2.816, -1.078]], "cams": ["cam4", "left"]}, {"label": "L5", "c": [5.931, -1.946, -1.612], "u": [-0.55, -0.835, 0.012], "v": [0.467, -0.296, 0.834], "n": [-0.692, 0.464, 0.552], "holes": [[6.162, -1.797, -1.448], [5.887, -2.214, -1.442], [5.7, -2.096, -1.776], [5.975, -1.679, -1.782]], "cams": ["cam5", "front"]}, {"label": "L6", "c": [6.008, -1.977, 0.31], "u": [-0.579, -0.81, 0.09], "v": [-0.259, 0.288, 0.922], "n": [-0.773, 0.51, -0.377], "holes": [[6.087, -1.732, 0.48], [5.804, -2.139, 0.51], [6.208, -1.812, 0.124], [5.932, -2.227, 0.128]], "cams": ["cam5", "front"]}, {"label": "L7", "c": [6.169, -2.085, -0.664], "u": [-0.554, -0.832, -0.034], "v": [-0.026, -0.023, 0.999], "n": [-0.832, 0.554, -0.009], "holes": [[6.306, -1.884, -0.855], [6.034, -2.291, -0.864], [6.307, -1.876, -0.468], [6.03, -2.291, -0.468]], "cams": ["cam5", "front"]}, {"label": "L1", "c": [3.791, 2.597, 0.209], "u": [-0.799, 0.602, 0.001], "v": [-0.303, -0.404, 0.863], "n": [0.52, 0.689, 0.505], "holes": [[4.049, 2.524, 0.043], [3.931, 2.37, 0.375], [3.648, 2.824, 0.045], [3.536, 2.668, 0.374]], "cams": ["cam6", "front"]}, {"label": "L2", "c": [5.962, 2.099, -0.7], "u": [-0.678, 0.735, 0.001], "v": [0.009, 0.007, 1.0], "n": [0.735, 0.678, -0.011], "holes": [[6.132, 1.919, -0.499], [6.133, 1.911, -0.895], [5.791, 2.289, -0.505], [5.793, 2.279, -0.902]], "cams": ["cam6", "front"]}, {"label": "L3", "c": [5.82, 1.974, 0.278], "u": [-0.677, 0.735, -0.014], "v": [-0.285, -0.245, 0.927], "n": [0.678, 0.632, 0.376], "holes": [[6.044, 1.845, 0.092], [5.938, 1.737, 0.465], [5.707, 2.209, 0.089], [5.593, 2.106, 0.467]], "cams": ["cam6", "front"]}, {"label": "L4", "c": [5.753, 1.905, -1.64], "u": [0.673, -0.74, -0.005], "v": [0.421, 0.377, 0.825], "n": [-0.608, -0.558, 0.565], "holes": [[5.669, 2.165, -1.473], [6.006, 1.796, -1.476], [5.837, 1.645, -1.806], [5.501, 2.015, -1.803]], "cams": ["cam6", "front"]}, {"label": "L9", "c": [0.061, -3.362, -0.767], "u": [-0.681, 0.715, -0.157], "v": [-0.133, 0.09, 0.987], "n": [0.72, 0.693, 0.034], "holes": [[0.246, -3.545, -0.954], [0.223, -3.541, -0.543], [-0.105, -3.179, -0.992], [-0.119, -3.184, -0.578]], "cams": ["cam7", "right"]}, {"label": "L8", "c": [3.717, -2.639, 0.26], "u": [-0.686, -0.728, -0.017], "v": [-0.385, 0.343, 0.857], "n": [-0.618, 0.594, -0.515], "holes": [[3.808, -2.394, 0.434], [3.963, -2.524, 0.097], [3.473, -2.75, 0.425], [3.624, -2.886, 0.085]], "cams": ["front"]}], "simLidar": [0, 0, 0], "note": "보드 1쌍 카메라(cam4·left·cam7·right)는 위치 추정이 불안정해 실제 장착 위치와 다를 수 있음"}, "eleccity": {"title": "판타G Eleccity", "sub": "2026-11-20 · 23 · 카메라 6대 · vehicle 기준 (원점 = 지면)", "frame": "vehicle", "vehicle": {"x": [-3.3, 7.9], "y": [-1.25, 1.25], "z": [0.25, 3.2]}, "ground": 0.0, "lidars": [{"name": "vehicle 원점", "p": [0, 0, 0]}], "cams": [{"name": "top_center", "p": [7.575, -0.055, 2.182], "R": [[-0.008, -1.0, -0.012], [0.02, 0.012, -1.0], [1.0, -0.008, 0.02]], "fov": 54, "stats": [["보드", "6쌍"], ["RMSE", "37.1 mm"], ["영상 오차", "10.02 px"], ["렌즈", "HFOV 54°"]], "warn": false, "err": {"px": 10.02, "mm": 37.1}}, {"name": "bottom_center", "p": [7.474, -0.09, 2.216], "R": [[-0.007, -1.0, -0.009], [0.021, 0.009, -1.0], [1.0, -0.007, 0.021]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "34.7 mm"], ["영상 오차", "5.62 px"], ["렌즈", "HFOV 128.7°"]], "warn": false, "err": {"px": 5.62, "mm": 34.7}}, {"name": "left_front", "p": [7.416, 1.253, 2.75], "R": [[0.019, -0.999, -0.043], [0.048, 0.044, -0.998], [0.999, 0.017, 0.049]], "fov": 120, "stats": [["보드", "7쌍"], ["RMSE", "59.9 mm"], ["영상 오차", "5.97 px"], ["렌즈", "HFOV 128.7°"]], "warn": false, "err": {"px": 5.97, "mm": 59.9}}, {"name": "right_front", "p": [7.421, -1.332, 2.745], "R": [[0.038, -0.999, -0.009], [-0.028, 0.008, -1.0], [0.999, 0.038, -0.028]], "fov": 120, "stats": [["보드", "6쌍"], ["RMSE", "27.7 mm"], ["영상 오차", "4.38 px"], ["렌즈", "HFOV 128.7°"]], "warn": false, "err": {"px": 4.38, "mm": 27.7}}, {"name": "left_rear", "p": [7.312, 1.324, 2.73], "R": [[0.77, 0.636, 0.048], [0.021, 0.05, -0.999], [-0.637, 0.77, 0.025]], "fov": 120, "stats": [["보드", "3쌍"], ["RMSE", "32.7 mm"], ["영상 오차", "4.46 px"], ["렌즈", "HFOV 128.7°"]], "warn": false, "err": {"px": 4.46, "mm": 32.7}}, {"name": "right_rear", "p": [7.232, -1.297, 2.753], "R": [[-0.816, 0.578, -0.01], [0.007, -0.006, -1.0], [-0.578, -0.816, 0.001]], "fov": 120, "stats": [["보드", "2쌍"], ["RMSE", "35.2 mm"], ["영상 오차", "8.29 px"], ["렌즈", "HFOV 128.7°"]], "warn": true, "err": {"px": 8.29, "mm": 35.2}}], "boards": [{"label": "L1", "c": [12.712, 1.869, 2.828], "u": [0.65, -0.759, -0.035], "v": [-0.269, -0.273, 0.924], "n": [-0.711, -0.591, -0.381], "holes": [[12.495, 2.004, 3.021], [12.82, 1.625, 3.004], [12.928, 1.734, 2.634], [12.603, 2.114, 2.652]], "cams": ["top_center"]}, {"label": "L2", "c": [12.6, -2.058, 0.821], "u": [-0.596, -0.803, -0.013], "v": [0.424, -0.328, 0.844], "n": [-0.682, 0.498, 0.537], "holes": [[12.834, -1.923, 0.993], [12.536, -2.324, 0.987], [12.366, -2.193, 0.649], [12.664, -1.791, 0.655]], "cams": ["top_center"]}, {"label": "L3", "c": [12.673, -2.088, 2.773], "u": [-0.602, -0.799, -0.003], "v": [-0.273, 0.202, 0.941], "n": [-0.751, 0.567, -0.339], "holes": [[12.769, -1.848, 2.962], [12.468, -2.247, 2.961], [12.577, -2.328, 2.584], [12.878, -1.929, 2.586]], "cams": ["top_center"]}, {"label": "L4", "c": [12.811, -2.195, 1.784], "u": [-0.589, -0.808, 0.011], "v": [0.009, 0.006, 1.0], "n": [-0.808, 0.589, 0.004], "holes": [[12.961, -1.991, 1.982], [12.666, -2.395, 1.987], [12.662, -2.398, 1.587], [12.957, -1.994, 1.582]], "cams": ["top_center"]}, {"label": "P6", "c": [12.844, 2.007, 1.773], "u": [0.638, -0.769, 0.039], "v": [-0.045, 0.014, 0.999], "n": [-0.769, -0.639, -0.026], "holes": [[12.676, 2.202, 1.963], [12.995, 1.818, 1.983], [13.012, 1.812, 1.583], [12.694, 2.197, 1.564]], "cams": ["top_center"]}, {"label": "P7", "c": [12.622, 1.838, 0.844], "u": [0.651, -0.759, 0.019], "v": [0.395, 0.36, 0.845], "n": [-0.648, -0.542, 0.534], "holes": [[12.539, 2.099, 1.008], [12.864, 1.72, 1.018], [12.706, 1.576, 0.68], [12.381, 1.955, 0.67]], "cams": ["top_center"]}, {"label": "L1", "c": [11.22, 2.008, 1.788], "u": [0.637, -0.771, 0.019], "v": [-0.052, -0.018, 0.999], "n": [-0.769, -0.637, -0.051], "holes": [[11.05, 2.197, 1.983], [11.368, 1.811, 1.992], [11.389, 1.818, 1.593], [11.071, 2.204, 1.583]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L2", "c": [11.104, 1.876, 2.798], "u": [0.641, -0.767, -0.019], "v": [-0.252, -0.233, 0.939], "n": [-0.725, -0.598, -0.343], "holes": [[10.893, 2.022, 2.99], [11.214, 1.638, 2.981], [11.314, 1.731, 2.605], [10.994, 2.115, 2.615]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L3", "c": [11.001, 1.837, 0.834], "u": [0.645, -0.764, 0.005], "v": [0.414, 0.355, 0.838], "n": [-0.642, -0.538, 0.546], "holes": [[10.923, 2.099, 1.0], [11.245, 1.717, 1.003], [11.08, 1.575, 0.668], [10.757, 1.957, 0.665]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L4", "c": [10.971, -2.035, 0.815], "u": [-0.606, -0.795, -0.03], "v": [0.408, -0.343, 0.846], "n": [-0.683, 0.501, 0.532], "holes": [[11.204, -1.905, 0.991], [10.901, -2.302, 0.977], [10.738, -2.165, 0.638], [11.041, -1.768, 0.653]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L5", "c": [11.072, -2.095, 2.762], "u": [-0.6, -0.8, -0.003], "v": [-0.289, 0.213, 0.933], "n": [-0.746, 0.561, -0.359], "holes": [[11.164, -1.853, 2.949], [10.864, -2.253, 2.948], [10.98, -2.338, 2.574], [11.279, -1.938, 2.576]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L6", "c": [11.183, -2.212, 1.772], "u": [-0.601, -0.798, 0.035], "v": [0.021, 0.028, 0.999], "n": [-0.799, 0.602, 0.0], "holes": [[11.338, -2.006, 1.963], [11.037, -2.406, 1.98], [11.029, -2.417, 1.581], [11.329, -2.017, 1.563]], "cams": ["bottom_center", "left_front", "right_front"]}, {"label": "L0", "c": [8.843, 2.919, 2.76], "u": [0.639, -0.769, -0.015], "v": [-0.381, -0.333, 0.862], "n": [-0.668, -0.545, -0.506], "holes": [[8.607, 3.044, 2.936], [8.926, 2.66, 2.929], [9.079, 2.793, 2.584], [8.759, 3.178, 2.591]], "cams": ["left_front"]}, {"label": "L0", "c": [2.661, 2.658, 1.777], "u": [-0.646, -0.76, -0.072], "v": [-0.05, -0.052, 0.997], "n": [-0.761, 0.648, -0.005], "holes": [[2.813, 2.838, 1.995], [2.489, 2.458, 1.959], [2.509, 2.479, 1.56], [2.833, 2.858, 1.596]], "cams": ["left_rear"]}, {"label": "L1", "c": [2.796, 2.488, 2.784], "u": [0.651, 0.759, 0.002], "v": [0.299, -0.258, 0.919], "n": [0.698, -0.598, -0.395], "holes": [[2.693, 2.247, 2.967], [3.019, 2.626, 2.968], [2.899, 2.73, 2.6], [2.574, 2.35, 2.599]], "cams": ["left_rear"]}, {"label": "L2", "c": [2.874, 2.48, 0.818], "u": [-0.65, -0.76, 0.0], "v": [-0.414, 0.355, 0.838], "n": [-0.637, 0.545, -0.545], "holes": [[2.954, 2.741, 0.985], [2.629, 2.361, 0.985], [2.795, 2.219, 0.65], [3.12, 2.599, 0.65]], "cams": ["left_rear"]}, {"label": "L0", "c": [4.253, -2.771, 0.787], "u": [-0.958, 0.286, 0.01], "v": [-0.151, -0.535, 0.831], "n": [0.243, 0.795, 0.556], "holes": [[4.463, -2.949, 0.951], [3.984, -2.807, 0.956], [4.044, -2.593, 0.624], [4.523, -2.735, 0.619]], "cams": ["right_rear"]}, {"label": "L1", "c": [4.177, -2.863, 2.766], "u": [-0.957, 0.291, -0.006], "v": [0.085, 0.301, 0.95], "n": [0.278, 0.908, -0.313], "holes": [[4.433, -2.875, 2.958], [3.955, -2.73, 2.954], [3.921, -2.85, 2.575], [4.399, -2.996, 2.578]], "cams": ["right_rear"]}], "simLidar": [7.6, 0.0, 3.4], "note": "right_rear는 보드 2쌍으로 신뢰도 낮음 (3쌍 이상 권장)"}, "torres": {"title": "토레스", "sub": "Torres 03 · 2026-09-14 / 16 · LiDAR 3대 · 카메라 6대 · base_link 기준", "frame": "base_link", "vehicle": {"x": [-0.95, 3.75], "y": [-0.95, 0.95], "z": [0.2, 1.7]}, "ground": 0.0, "lidars": [{"name": "ot128", "p": [1.037, -0.012, 1.954]}, {"name": "qt128_left", "p": [1.018, 0.517, 1.758]}, {"name": "qt128_right", "p": [1.025, -0.544, 1.746]}], "cams": [{"name": "front_center_wide", "kr": "앞유리 중앙", "p": [2.043, -0.104, 1.335], "R": [[-0.003, -1.0, -0.003], [-0.021, 0.003, -1.0], [1.0, -0.003, -0.021]], "fov": 150, "stats": [["설치 위치", "앞유리 중앙"], ["각도 오차", "0.085°"], ["3D RMSE", "15.4 mm"], ["내부 RMS", "2.42 px"]], "warn": false, "err": {"deg": 0.085, "mm": 15.4}}, {"name": "roof_left", "kr": "루프 좌측", "p": [1.655, 0.641, 1.619], "R": [[0.694, -0.72, 0.032], [0.022, -0.023, -0.999], [0.72, 0.694, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 좌측"], ["각도 오차", "0.086°"], ["3D RMSE", "25.5 mm"], ["내부 RMS", "1.02 px"]], "warn": false, "err": {"deg": 0.086, "mm": 25.5}}, {"name": "roof_right", "kr": "루프 우측", "p": [1.563, -0.549, 1.593], "R": [[-0.679, -0.732, -0.047], [0.032, 0.034, -0.999], [0.733, -0.68, -0.0]], "fov": 150, "stats": [["설치 위치", "루프 우측"], ["각도 오차", "0.084°"], ["3D RMSE", "17.3 mm"], ["내부 RMS", "1.41 px"]], "warn": false, "err": {"deg": 0.084, "mm": 17.3}}, {"name": "rear_left", "kr": "좌측 후방", "p": [2.32, 0.915, 0.771], "R": [[0.86, 0.511, -0.016], [-0.024, 0.009, -1.0], [-0.51, 0.86, 0.02]], "fov": 150, "stats": [["설치 위치", "좌측 후방"], ["각도 오차", "0.127°"], ["3D RMSE", "16.4 mm"], ["내부 RMS", "1.69 px"]], "warn": false, "err": {"deg": 0.127, "mm": 16.4}}, {"name": "rear_center", "kr": "후면 중앙", "p": [-0.773, -0.024, 1.456], "R": [[-0.019, 1.0, 0.009], [0.03, 0.01, -0.999], [-0.999, -0.019, -0.03]], "fov": 150, "stats": [["설치 위치", "후면 중앙"], ["각도 오차", "0.168°"], ["3D RMSE", "12.5 mm"], ["내부 RMS", "2.39 px"]], "warn": false, "err": {"deg": 0.168, "mm": 12.5}}, {"name": "rear_right", "kr": "우측 후방", "p": [2.295, -0.899, 0.742], "R": [[-0.862, 0.506, -0.001], [0.021, 0.033, -0.999], [-0.506, -0.862, -0.039]], "fov": 150, "stats": [["설치 위치", "우측 후방"], ["각도 오차", "0.169°"], ["3D RMSE", "27.7 mm"], ["내부 RMS", "1.25 px"]], "warn": false, "err": {"deg": 0.169, "mm": 27.7}}], "boards": [], "simLidar": [1.037, -0.012, 1.954], "note": "보드 좌표 기록이 없어 센서 배치만 표시 · 평균 각도 오차 0.120°, 3D RMSE 19.1 mm"}};
 (function () {
   const KEYS = ["ioniq", "eleccity", "torres"];
   const C = { sky: 0x1e9bd7, warn: 0xe8b84a, board: 0xc9d6e6, lidar: 0x7fe0c4, veh: 0x5f7a99, grid: 0x24313f };
@@ -90,6 +113,8 @@ const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiD
   const ctl = new THREE.OrbitControls(cam, cv); ctl.enableDamping = true; ctl.dampingFactor = 0.1;
   scene.add(new THREE.AmbientLight(0xffffff, 0.7)); const dl = new THREE.DirectionalLight(0xffffff, 0.6); dl.position.set(5, -8, 12); scene.add(dl);
   let root = null, labels = [], camObjs = {}, current = null, selected = null, bounds = null;
+  const SV = window.SV = { scene, renderer, cam, ctl, onBuild: [], onSelect: [], key: () => current, selected: () => selected, select: n => select(n),
+    showResult(on) { if (!root) return; (root.userData.boardObjs || []).forEach(o => { o.grp.visible = on; o.el.dataset.off = on ? "0" : "1"; }); Object.values(camObjs).forEach(o => { if (o.links) o.links.visible = on; }); } };
 
   const V = (a) => new THREE.Vector3(a[0], a[1], a[2]);
   function lineMat(color, opacity, dashed) {
@@ -167,6 +192,7 @@ const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiD
     const bb = new THREE.Box3().setFromObject(box); d.cams.forEach(c => bb.expandByPoint(V(c.p))); d.boards.forEach(b => bb.expandByPoint(V(b.c)));
     bounds = bb; setView("chase");
     document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.k === key ? "true" : "false"));
+    SV.onBuild.forEach(f => f(key, d));
   }
 
   function select(name) {
@@ -182,6 +208,7 @@ const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiD
       o.grp.children.forEach(ch => { ch.material.opacity = on ? (ch.isMesh ? 0.32 : 0.9) : 0.06; });
       o.el.classList.toggle("dim", !on);
     });
+    SV.onSelect.forEach(f => f(name));
   }
 
   function setView(kind) {
@@ -202,10 +229,197 @@ const DATA = {"ioniq": {"title": "아이오닉", "sub": "2026-11-18 · Hesai LiD
   function loop() {
     ctl.update(); renderer.render(scene, cam);
     const w = stage.clientWidth, h = stage.clientHeight;
-    labels.forEach(({ el, pos }) => { tmp.copy(pos).project(cam); const vis = tmp.z < 1 && Math.abs(tmp.x) < 1.1 && Math.abs(tmp.y) < 1.1; el.hidden = !vis; if (vis) { el.style.left = ((tmp.x + 1) / 2 * w) + "px"; el.style.top = ((1 - tmp.y) / 2 * h) + "px"; } });
+    labels.forEach(({ el, pos }) => { if (el.dataset.off === "1") { el.hidden = true; return; } tmp.copy(pos).project(cam); const vis = tmp.z < 1 && Math.abs(tmp.x) < 1.1 && Math.abs(tmp.y) < 1.1; el.hidden = !vis; if (vis) { el.style.left = ((tmp.x + 1) / 2 * w) + "px"; el.style.top = ((1 - tmp.y) / 2 * h) + "px"; } });
     requestAnimationFrame(loop);
   }
-  resize(); route(); loop();
+  resize(); loop();
+  SV.start = route;
+})();
+
+(function () {
+  // ===== 정합 확인 (가상 환경): virtual room + simulated LiDAR + simulated camera, perturbed by each camera's reported error =====
+  const SV = window.SV, D2R = Math.PI / 180, $ = id => document.getElementById(id);
+  const IW = 640, IH = 400;
+  let mode = "result", key = null, env = null, envScene = null, prims = [], cloud = null, cloudObj = null, camName = null, k = 1, show3d = "color", ptSize = 0.035;
+  let imgBuf = null, rt = null;
+
+  // ---------- helpers ----------
+  const V = a => new THREE.Vector3(a[0], a[1], a[2]);
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  function hash(str) { let h = 2166136261; for (const ch of str) { h ^= ch.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t; }
+
+  // ---------- virtual environment ----------
+  function boardsFor(d) {
+    if (d.boards.length) return d.boards.map(b => ({ c: b.c, u: b.u, v: b.v, n: b.n, holes: b.holes }));
+    // no recorded boards (Torres): put two virtual boards in front of every camera
+    const out = [];
+    d.cams.forEach(cm => { const z = V(cm.R[2]); z.z = 0; if (z.length() < 1e-3) return; z.normalize();
+      [[5.5, 0, 1.3], [8.5, 1.4, 1.9]].forEach(([dist, side, hz]) => { const left = new THREE.Vector3(-z.y, z.x, 0);
+        const c = V(cm.p).add(z.clone().multiplyScalar(dist)).add(left.clone().multiplyScalar(side)); c.z = hz;
+        const n = z.clone().multiplyScalar(-1), u = new THREE.Vector3(-n.y, n.x, 0), v = new THREE.Vector3(0, 0, 1);
+        const holes = [[-0.25, 0.2], [0.25, 0.2], [-0.25, -0.2], [0.25, -0.2]].map(([a, b]) => c.clone().add(u.clone().multiplyScalar(a)).add(v.clone().multiplyScalar(b)).toArray());
+        out.push({ c: c.toArray(), u: u.toArray(), v: v.toArray(), n: n.toArray(), holes }); }); });
+    return out;
+  }
+  function buildEnv(d) {
+    const R = rng(hash(key)), g0 = d.ground, grp = new THREE.Group(); prims = [];
+    const boards = boardsFor(d);
+    const pts = [...boards.map(b => b.c), ...d.cams.map(c => c.p)];
+    let x0 = Math.min(d.vehicle.x[0], ...pts.map(p => p[0])) - 5, x1 = Math.max(d.vehicle.x[1], ...pts.map(p => p[0])) + 5;
+    let y0 = Math.min(d.vehicle.y[0], ...pts.map(p => p[1])) - 5, y1 = Math.max(d.vehicle.y[1], ...pts.map(p => p[1])) + 5;
+    const H = 6;
+    // floor
+    const floorTex = canvasTex(1024, 1024, (g, w, h) => { g.fillStyle = "#8d949c"; g.fillRect(0, 0, w, h); g.strokeStyle = "#6f767e"; g.lineWidth = 6; for (let i = 0; i <= 8; i++) { g.beginPath(); g.moveTo(i * w / 8, 0); g.lineTo(i * w / 8, h); g.stroke(); g.beginPath(); g.moveTo(0, i * h / 8); g.lineTo(w, i * h / 8); g.stroke(); }
+      g.fillStyle = "#e3c034"; g.fillRect(w * 0.48, 0, w * 0.04, h); g.fillStyle = "#f2f2f2"; for (let i = 0; i < 8; i++) g.fillRect(w * 0.1, i * h / 8 + 20, w * 0.03, h / 16); });
+    floorTex.wrapS = floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set((x1 - x0) / 8, (y1 - y0) / 8);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, y1 - y0), new THREE.MeshBasicMaterial({ map: floorTex }));
+    floor.position.set((x0 + x1) / 2, (y0 + y1) / 2, g0); grp.add(floor);
+    prims.push({ t: "floor", z: g0, x0, x1, y0, y1 });
+    // walls with high-contrast panels
+    const palette = ["#2f6fb5", "#e07a2e", "#d9d9d9", "#3a9b6a", "#b23b5e", "#f0c419", "#5b4fa8", "#202733"];
+    function wall(c, u, w, idx) {
+      const tex = canvasTex(1024, 256, (g, W, Hh) => { let x = 0; while (x < W) { const pw = 60 + R() * 140; g.fillStyle = palette[Math.floor(R() * palette.length)]; g.fillRect(x, 0, pw, Hh); x += pw; }
+        g.fillStyle = "rgba(255,255,255,.85)"; g.fillRect(0, Hh * 0.62, W, 10); g.fillStyle = "#111"; for (let i = 0; i < 6; i++) { g.fillRect(R() * W, Hh * 0.15 + R() * Hh * 0.3, 40 + R() * 60, 40 + R() * 50); } });
+      const n = new THREE.Vector3(0, 0, 1).cross(u).normalize();
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, H), new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide }));
+      m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, new THREE.Vector3(0, 0, 1), n)); m.position.set(c.x, c.y, g0 + H / 2); grp.add(m);
+      prims.push({ t: "rect", c: new THREE.Vector3(c.x, c.y, g0 + H / 2), u: u.clone(), v: new THREE.Vector3(0, 0, 1), n, hu: w / 2, hv: H / 2, holes: [] });
+    }
+    wall(new THREE.Vector3(x1, (y0 + y1) / 2, 0), new THREE.Vector3(0, 1, 0), y1 - y0, 0);
+    wall(new THREE.Vector3(x0, (y0 + y1) / 2, 0), new THREE.Vector3(0, -1, 0), y1 - y0, 1);
+    wall(new THREE.Vector3((x0 + x1) / 2, y1, 0), new THREE.Vector3(-1, 0, 0), x1 - x0, 2);
+    wall(new THREE.Vector3((x0 + x1) / 2, y0, 0), new THREE.Vector3(1, 0, 0), x1 - x0, 3);
+    // pillars / boxes
+    const cols = [0xc0392b, 0x16a085, 0x8e44ad, 0xd35400, 0x2c3e50];
+    for (let i = 0; i < 6; i++) {
+      let px, py, tries = 0; do { px = x0 + 2 + R() * (x1 - x0 - 4); py = y0 + 2 + R() * (y1 - y0 - 4); tries++; }
+      while (tries < 40 && (px > d.vehicle.x[0] - 1.5 && px < d.vehicle.x[1] + 1.5 && py > d.vehicle.y[0] - 1.5 && py < d.vehicle.y[1] + 1.5 || boards.some(b => Math.hypot(b.c[0] - px, b.c[1] - py) < 1.6)));
+      const sx = 0.5 + R() * 0.7, sy = 0.5 + R() * 0.7, sz = 1 + R() * 2.2;
+      const tex = canvasTex(128, 256, (g, w, h) => { g.fillStyle = "#" + cols[i % cols.length].toString(16).padStart(6, "0"); g.fillRect(0, 0, w, h); g.fillStyle = "#fff"; for (let j = 0; j < 4; j++) g.fillRect(0, j * h / 4 + 10, w, 12); });
+      const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), new THREE.MeshBasicMaterial({ map: tex })); m.position.set(px, py, g0 + sz / 2); grp.add(m);
+      prims.push({ t: "box", min: [px - sx / 2, py - sy / 2, g0], max: [px + sx / 2, py + sy / 2, g0 + sz] });
+    }
+    // calibration boards (1.1 x 0.9, ArUco-like corners, 4 real holes)
+    boards.forEach((b, bi) => {
+      const c = V(b.c), u = V(b.u), v = V(b.v), n = V(b.n);
+      const hl = b.holes.map(h => { const q = V(h).sub(c); return [q.dot(u), q.dot(v)]; });
+      const r2 = rng(hash(key + bi));
+      const tex = canvasTex(440, 360, (g, w, h) => { g.fillStyle = "#f4f4f4"; g.fillRect(0, 0, w, h);
+        [[-0.42, 0.32], [0.42, 0.32], [-0.42, -0.32], [0.42, -0.32]].forEach(([a, bb]) => { const cx = (a + 0.55) * 400, cy = (0.45 - bb) * 400, s = 76; g.fillStyle = "#000"; g.fillRect(cx - s / 2, cy - s / 2, s, s);
+          for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if (r2() > 0.5) { g.fillStyle = "#fff"; g.fillRect(cx - s / 2 + 13 + i * 12.5, cy - s / 2 + 13 + j * 12.5, 12.5, 12.5); } });
+        g.globalCompositeOperation = "destination-out"; hl.forEach(([a, bb]) => { g.beginPath(); g.arc((a + 0.55) * 400, (0.45 - bb) * 400, 0.12 * 400, 0, 6.283); g.fill(); }); });
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 0.9), new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.5, side: THREE.DoubleSide }));
+      m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(u, v, n)); m.position.copy(c); grp.add(m);
+      prims.push({ t: "rect", c, u, v, n, hu: 0.55, hv: 0.45, holes: hl });
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, c.z - g0, 8), new THREE.MeshBasicMaterial({ color: 0x333333 })); pole.rotation.x = Math.PI / 2; pole.position.set(c.x, c.y, (c.z + g0) / 2 - 0.2); grp.add(pole);
+    });
+    return grp;
+  }
+  // ---------- simulated LiDAR (analytic ray casting) ----------
+  function castRay(o, d) {
+    let best = 60;
+    for (const p of prims) {
+      if (p.t === "floor") { if (d[2] < -1e-6) { const t = (p.z - o[2]) / d[2]; if (t > 0 && t < best) { const x = o[0] + d[0] * t, y = o[1] + d[1] * t; if (x > p.x0 && x < p.x1 && y > p.y0 && y < p.y1) best = t; } } }
+      else if (p.t === "rect") { const dn = d[0] * p.n.x + d[1] * p.n.y + d[2] * p.n.z; if (Math.abs(dn) < 1e-6) continue;
+        const t = ((p.c.x - o[0]) * p.n.x + (p.c.y - o[1]) * p.n.y + (p.c.z - o[2]) * p.n.z) / dn; if (t <= 0.05 || t >= best) continue;
+        const qx = o[0] + d[0] * t - p.c.x, qy = o[1] + d[1] * t - p.c.y, qz = o[2] + d[2] * t - p.c.z;
+        const a = qx * p.u.x + qy * p.u.y + qz * p.u.z, b = qx * p.v.x + qy * p.v.y + qz * p.v.z;
+        if (Math.abs(a) <= p.hu && Math.abs(b) <= p.hv && !p.holes.some(([ha, hb]) => (a - ha) ** 2 + (b - hb) ** 2 < 0.0144)) best = t; }
+      else { let tmin = 0.05, tmax = best; for (let i = 0; i < 3; i++) { if (Math.abs(d[i]) < 1e-9) { if (o[i] < p.min[i] || o[i] > p.max[i]) { tmin = 1; tmax = 0; break; } continue; }
+          let t1 = (p.min[i] - o[i]) / d[i], t2 = (p.max[i] - o[i]) / d[i]; if (t1 > t2) [t1, t2] = [t2, t1]; tmin = Math.max(tmin, t1); tmax = Math.min(tmax, t2); if (tmin > tmax) break; }
+        if (tmin <= tmax && tmin < best) best = tmin; }
+    }
+    return best < 60 ? best : -1;
+  }
+  function simulateLidar(d) {
+    const o = d.simLidar, out = [];
+    for (let e = -25; e <= 15; e += 0.4) { const ce = Math.cos(e * D2R), se = Math.sin(e * D2R);
+      for (let a = 0; a < 360; a += 0.25) { const dir = [ce * Math.cos(a * D2R), ce * Math.sin(a * D2R), se]; const t = castRay(o, dir); if (t > 0) out.push(o[0] + dir[0] * t, o[1] + dir[1] * t, o[2] + dir[2] * t); } }
+    return new Float32Array(out);
+  }
+  // ---------- camera model, render, perturbation ----------
+  function camModel(cm) {
+    const hf = Math.min(cm.fov, 110) * D2R, fx = (IW / 2) / Math.tan(hf / 2), vf = 2 * Math.atan((IH / 2) / fx);
+    return { hf, fx, vf, R: [V(cm.R[0]), V(cm.R[1]), V(cm.R[2])], t: V(cm.p) };
+  }
+  function perturb(cm, M, scale) {
+    const r = rng(hash(cm.name));
+    const ax = new THREE.Vector3(r() - .5, r() - .5, r() - .5).normalize(), tr = new THREE.Vector3(r() - .5, r() - .5, r() - .5).normalize();
+    let ang = 0; const e = cm.err || {};
+    if (e.deg) ang = e.deg; else if (e.px) { const f1920 = 960 / Math.tan(Math.min(cm.fov, 170) * D2R / 2); ang = Math.atan(e.px / f1920) / D2R; }
+    const mm = e.mm || 0;
+    // rotate camera axes by (scale*ang) about axis expressed in camera frame
+    const axW = M.R[0].clone().multiplyScalar(ax.x).add(M.R[1].clone().multiplyScalar(ax.y)).add(M.R[2].clone().multiplyScalar(ax.z)).normalize();
+    const q = new THREE.Quaternion().setFromAxisAngle(axW, scale * ang * D2R);
+    return { R: M.R.map(v => v.clone().applyQuaternion(q)), t: M.t.clone().add(tr.multiplyScalar(scale * mm / 1000)), ang, mm, px: e.px, deg: e.deg };
+  }
+  function renderCam(cm, M) {
+    if (!rt) rt = new THREE.WebGLRenderTarget(IW, IH);
+    const c3 = new THREE.PerspectiveCamera(M.vf / D2R, IW / IH, 0.05, 200);
+    c3.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(M.R[0], M.R[1].clone().negate(), M.R[2].clone().negate())); c3.position.copy(M.t); c3.updateMatrixWorld();
+    const r = SV.renderer, prev = r.getRenderTarget(), pr = r.getPixelRatio(); r.setRenderTarget(rt); r.setClearColor(0x9fb3c8, 1); r.clear(); r.render(envScene, c3); r.setRenderTarget(prev); r.setClearColor(0x000000, 0);
+    imgBuf = new Uint8Array(IW * IH * 4); r.readRenderTargetPixels(rt, 0, 0, IW, IH, imgBuf);
+  }
+  function project(P, E, fx) { // returns [u, v, z] with optical convention (y down)
+    const dx = P[0] - E.t.x, dy = P[1] - E.t.y, dz = P[2] - E.t.z;
+    const x = dx * E.R[0].x + dy * E.R[0].y + dz * E.R[0].z, y = dx * E.R[1].x + dy * E.R[1].y + dz * E.R[1].z, z = dx * E.R[2].x + dy * E.R[2].y + dz * E.R[2].z;
+    if (z < 0.3) return null; return [fx * x / z + IW / 2, fx * y / z + IH / 2, z];
+  }
+  // ---------- main update ----------
+  function current() { const d = DATA[key]; const sel = SV.selected(); return d.cams.find(c => c.name === (sel || camName)) || d.cams[0]; }
+  function update() {
+    if (mode !== "check" || !env) return;
+    const d = DATA[key], cm = current(); camName = cm.name;
+    const M = camModel(cm), E = perturb(cm, M, k);
+    renderCam(cm, M);
+    // overlay canvas
+    const cvs = $("chk-img"), g = cvs.getContext("2d"), im = g.createImageData(IW, IH);
+    for (let y = 0; y < IH; y++) im.data.set(imgBuf.subarray((IH - 1 - y) * IW * 4, (IH - y) * IW * 4), y * IW * 4);
+    g.putImageData(im, 0, 0);
+    // z-buffer (coarse) for occlusion-aware colouring
+    const ZW = IW / 2, ZH = IH / 2, zb = new Float32Array(ZW * ZH).fill(1e9), proj = new Float32Array(cloud.length);
+    for (let i = 0; i < cloud.length; i += 3) { const p = project([cloud[i], cloud[i + 1], cloud[i + 2]], E, M.fx); if (!p || p[0] < 0 || p[0] >= IW || p[1] < 0 || p[1] >= IH) { proj[i + 2] = -1; continue; }
+      proj[i] = p[0]; proj[i + 1] = p[1]; proj[i + 2] = p[2]; const zi = (p[1] >> 1) * ZW + (p[0] >> 1); if (p[2] < zb[zi]) zb[zi] = p[2]; }
+    const colors = new Float32Array(cloud.length); let shown = 0;
+    for (let i = 0; i < cloud.length; i += 3) {
+      const z = proj[i + 2]; colors[i] = colors[i + 1] = colors[i + 2] = 0.32;
+      if (z <= 0) continue; const u = proj[i], v = proj[i + 1], zi = (v >> 1) * ZW + (u >> 1);
+      if (z > zb[zi] * 1.04 + 0.05) continue;
+      const pi = ((IH - 1 - Math.floor(v)) * IW + Math.floor(u)) * 4; colors[i] = imgBuf[pi] / 255; colors[i + 1] = imgBuf[pi + 1] / 255; colors[i + 2] = imgBuf[pi + 2] / 255; shown++;
+      if (i % 6 === 0) { const t = Math.min(1, z / 15); g.fillStyle = `hsl(${(1 - t) * 240},100%,55%)`; g.fillRect(u - 1, v - 1, 2.2, 2.2); }
+    }
+    // 3D coloured cloud
+    if (cloudObj) SV.scene.remove(cloudObj);
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(cloud, 3)); geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    cloudObj = new THREE.Points(geo, new THREE.PointsMaterial({ size: ptSize, vertexColors: true })); cloudObj.visible = show3d !== "env"; SV.scene.add(cloudObj);
+    env.visible = show3d !== "color";
+    // readout
+    const src = E.deg ? `각도 오차 ${E.deg}° (실측)` : E.px ? `영상 오차 ${E.px.toFixed(2)} px → 약 ${E.ang.toFixed(2)}°` : "검증값 없음 (보드 1쌍 이하)";
+    $("chk-cam").textContent = cm.kr || cm.name;
+    $("chk-err").innerHTML = k === 0 ? "오차 없음 (결과 값 그대로 = 완벽 정합)" : `적용: 회전 <b>${(k * E.ang).toFixed(2)}°</b> · 이동 <b>${(k * E.mm).toFixed(0)} mm</b> <span class="hint">(${src}, ×${k})</span>`;
+    $("chk-note").textContent = `${cm.fov > 110 ? `화각 ${cm.fov}°는 110° 핀홀로 근사 · ` : ""}색 입힌 점 ${shown.toLocaleString()}개`;
+  }
+  // ---------- UI ----------
+  function setMode(m) {
+    mode = m; document.querySelectorAll(".mode button").forEach(b => b.setAttribute("aria-pressed", b.dataset.m === m ? "true" : "false"));
+    $("chk").hidden = m !== "check"; SV.showResult(m !== "check");
+    if (m === "check") { ensure(); update(); } else { if (env) env.visible = false; if (cloudObj) cloudObj.visible = false; }
+  }
+  function ensure() {
+    if (env && env.userData.key === key) return;
+    if (env) SV.scene.remove(env); if (cloudObj) { SV.scene.remove(cloudObj); cloudObj = null; }
+    const d = DATA[key]; env = buildEnv(d); env.userData.key = key; SV.scene.add(env);
+    envScene = new THREE.Scene(); const clone = env.clone(true); envScene.add(clone);
+    cloud = simulateLidar(d);
+  }
+  SV.onBuild.push(k2 => { key = k2; camName = null; if (env) { SV.scene.remove(env); env = null; } if (cloudObj) { SV.scene.remove(cloudObj); cloudObj = null; } if (mode === "check") setTimeout(() => setMode("check"), 0); });
+  SV.onSelect.push(() => { if (mode === "check") update(); });
+  document.querySelectorAll(".mode button").forEach(b => b.addEventListener("click", () => setMode(b.dataset.m)));
+  document.querySelectorAll("[data-k]").forEach(b => { if (!b.closest("#chk")) return; b.addEventListener("click", () => { k = +b.dataset.k; document.querySelectorAll("#chk [data-k]").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); update(); }); });
+  document.querySelectorAll("#chk [data-v]").forEach(b => b.addEventListener("click", () => { show3d = b.dataset.v; document.querySelectorAll("#chk [data-v]").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false")); update(); }));
+  $("chk-size").addEventListener("input", e => { ptSize = parseFloat(e.target.value); $("chk-size-o").textContent = Math.round(ptSize * 1000) + " mm"; if (cloudObj) cloudObj.material.size = ptSize; });
+  SV.start();
 })();
 </script>
 

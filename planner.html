@@ -41,6 +41,7 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
 #g3 { width: 100%; display: block; border-radius: 6px; background: #05090e; aspect-ratio: 16 / 10; touch-action: none; }
 .tip { position: absolute; left: 14px; top: 14px; font-size: 12px; color: var(--muted); background: rgba(5,9,14,.7); padding: 4px 8px; border-radius: 6px; pointer-events: none; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); }
+.psz { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--muted); } .psz input { width: 140px; accent-color: var(--sky); } .psz output { font: 12px var(--f-mono); color: var(--fg); min-width: 44px; }
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
 .ed { display: grid; gap: 8px; }
 .ed h3 { margin: 0; font-size: 15px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -101,7 +102,8 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
         <canvas id="g3" width="1280" height="800" aria-label="차량, 센서, 캘판 3D 배치. 클릭해서 선택하고 드래그해서 옮길 수 있음"></canvas>
         <div class="tip">클릭 = 선택 · 선택한 것을 드래그 = 이동 · 빈 곳 드래그 = 시점 회전 · 휠 = 확대</div>
       </div>
-      <div class="legend"><span><i style="background:#ff3b3b"></i>캘판에 찍힐 라이다 포인트 클라우드</span><span><i style="background:#3ddc84;opacity:.6"></i>카메라 화각 (바닥 부채꼴 = 1.5~15 m에서 보이는 범위)</span><span>센서 좌표계 축: x 앞 · y 왼쪽 · z 위 (빨강·초록·파랑, rviz 방식)</span></div>
+      <div class="legend"><span><i style="background:#ff3b3b"></i>캘판에 찍힐 라이다 포인트 클라우드</span><span><i style="background:#3ddc84;opacity:.6"></i>카메라 화각 (바닥 부채꼴 = 1.5~15 m에서 보이는 범위)</span><span><i style="background:transparent;border:2px solid #29b6f6"></i>마커(사각)·구멍(원) 카메라 검출 가능</span><span>센서 좌표계 축: x 앞 · y 왼쪽 · z 위 (rviz 방식)</span>
+        <label class="psz">점 크기 <input type="range" id="psize" min="0.004" max="0.06" step="0.002" value="0.012"> <output id="psize-o" for="psize">12 mm</output></label></div>
     </div>
     <div class="card">
       <h2>선택<span class="hint" id="sel-kind">없음</span></h2>
@@ -113,7 +115,7 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
   <div class="card">
     <div class="sum"><div><div class="k">기준 통과 카메라</div><div class="v" id="s-ok">–</div></div><div><div class="k">라이다로 보이는 보드</div><div class="v" id="s-n">–</div></div><div><div class="k">캘판</div><div class="v" id="s-st">–</div></div></div>
     <div class="cams" id="cams"></div>
-    <div class="rules"><b>판정 기준</b> · 라이다 라인 <b>5줄 이상</b> 맞는 보드만 사용 (10줄 이상 권장) · 카메라당 사용 가능 <b>보드 5장 이상</b> (6장: 중앙 5 mm·0.1°, 3장: 최악 2°) · 거리 <b>2~3 / 4~5 / 6 m+</b> 중 2구간 이상 · 타워만 보이면 단독 보드 추가 · 화면 폭 40% 이상 · 보드가 카메라를 70° 넘게 비껴 보면 제외 · 라이다 채널 배치는 사양 기반 근사 · 가림은 고려하지 않음</div>
+    <div class="rules"><b>판정 기준</b> · 마커(20 cm)가 영상에서 <b>15 px 이상</b>, 60° 이내로 보여야 검출 가능 · 라이다 라인 <b>5줄 이상</b> 맞는 보드만 사용 (10줄 이상 권장) · 카메라당 사용 가능 <b>보드 5장 이상</b> (6장: 중앙 5 mm·0.1°, 3장: 최악 2°) · 거리 <b>2~3 / 4~5 / 6 m+</b> 중 2구간 이상 · 타워만 보이면 단독 보드 추가 · 화면 폭 40% 이상 · 보드가 카메라를 70° 넘게 비껴 보면 제외 · 라이다 채널 배치는 사양 기반 근사 · 가림은 고려하지 않음</div>
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
@@ -220,28 +222,35 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
   const wrap = a => ((a + 540) % 360) - 180;
   function evaluate(keep) {
     const Ls = lidarsW();
-    BR = []; S.stands.forEach((s, i) => s.z.forEach((z, j) => { const B = boardFrame(s.x, s.y, z, s.yaw); BR.push({ i, j, z, B, ...scanBoard(B, Ls, keep) }); }));
+    BR = []; S.stands.forEach((s, i) => s.z.forEach((z, j) => { const B = boardFrame(s.x, s.y, z, s.yaw); BR.push({ i, j, z, B, det: [], ...scanBoard(B, Ls, keep) }); }));
     CR = camsW().map(c => {
       const vf = Math.min(c.hfov * 0.65, 120), vis = [];
       S.stands.forEach((s, i) => {
         const dx = s.x - c.x, dy = s.y - c.y, d = Math.hypot(dx, dy), b = wrap(Math.atan2(dy, dx) / D2R - c.yaw);
         if (Math.abs(b) > c.hfov / 2 || d < 1.5 || d > 15) return;
         const face = Math.abs(wrap(Math.atan2(-dy, -dx) / D2R - s.yaw));
-        let ok = 0, n = 0;
-        s.z.forEach((z, j) => { const el = Math.atan2(z - c.z, d) / D2R - c.pitch; if (Math.abs(el) > vf / 2) return; n++; const br = BR.find(r => r.i === i && r.j === j); if (face <= 70 && br.rings >= 5) ok++; });
-        if (n) vis.push({ i, d, b, n, ok, face });
+        let ok = 0, n = 0, small = 0, mpx = 0;
+        const f1920 = 960 / Math.tan(Math.min(c.hfov, 170) * D2R / 2);
+        s.z.forEach((z, j) => { const el = Math.atan2(z - c.z, d) / D2R - c.pitch; if (Math.abs(el) > vf / 2) return; n++; const br = BR.find(r => r.i === i && r.j === j);
+          const B = br.B, vx = c.x - B.c[0], vy = c.y - B.c[1], vz = c.z - B.c[2], d3 = Math.hypot(vx, vy, vz), cosi = (vx * B.n[0] + vy * B.n[1]) / d3;
+          const px = f1920 * 0.2 / d3 * Math.max(0, cosi); mpx = Math.max(mpx, px);
+          const det = cosi >= Math.cos(60 * D2R) && px >= 15; if (det) br.det.push(c.name); else small++;
+          if (face <= 70 && br.rings >= 5 && det) ok++; });
+        if (n) vis.push({ i, d, b, n, ok, face, small, mpx });
       });
       const n = vis.reduce((a, v) => a + v.ok, 0), raw = vis.reduce((a, v) => a + v.n, 0), usable = vis.filter(v => v.ok > 0);
       const bands = [usable.some(v => v.d <= 3.5), usable.some(v => v.d > 3.5 && v.d <= 5.5), usable.some(v => v.d > 5.5)];
       const spread = usable.length ? (Math.max(...usable.map(v => v.b)) - Math.min(...usable.map(v => v.b))) / c.hfov : 0;
       const issues = [];
       if (vis.some(v => v.face > 70)) issues.push("캘판이 카메라를 등지고 있음 → 방향 돌리기");
-      if (raw > n && !vis.some(v => v.face > 70)) issues.push(`라이다 라인 부족으로 보드 ${raw - n}장 제외`);
+      const smallN = vis.reduce((a, v) => a + v.small, 0);
+      if (smallN && !vis.some(v => v.face > 70)) issues.push(`마커 검출 어려운 보드 ${smallN}장 (마커가 15 px 미만이거나 60° 넘게 비스듬) → 가까이·정면으로`);
+      if (raw > n + smallN && !vis.some(v => v.face > 70)) issues.push(`라이다 라인 부족으로 보드 ${raw - n - smallN}장 제외`);
       if (n < 5) issues.push(`쓸 수 있는 보드 ${n}장 → ${5 - n}장 더 필요`);
       if (bands.filter(Boolean).length < 2) issues.push("거리 구간 1개뿐 → 2~3 / 4~5 / 6 m+ 섞기");
       if (usable.length && usable.every(v => S.stands[v.i].z.length > 1)) issues.push("타워만 보임 → 단독 보드 1장 추가 (한 칸 밀림 방지)");
       if (usable.length && spread < 0.4) issues.push(`화면의 ${Math.round(spread * 100)}%에만 몰림 → 가장자리에도 배치`);
-      const st = n < 3 ? "bad" : issues.some(t => !t.startsWith("라이다")) ? "warn" : "ok";
+      const st = n < 3 ? "bad" : issues.some(t => !t.startsWith("라이다") && !t.startsWith("마커")) ? "warn" : "ok";
       const acc = n >= 6 ? "중앙 약 5 mm · 0.1°" : n >= 5 ? "cm 이내 예상" : n >= 3 ? "cm급 · 최악 2°" : "풀이 불가/불안정";
       return { ...c, vis, n, bands, spread, issues, st, acc };
     });
@@ -281,7 +290,7 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
   const gp = []; for (let i = -30; i <= 30; i++) gp.push(new THREE.Vector3(i, -30, 0), new THREE.Vector3(i, 30, 0), new THREE.Vector3(-30, i, 0), new THREE.Vector3(30, i, 0));
   sc.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(gp), new THREE.LineBasicMaterial({ color: 0x1a2633 })));
   const C3 = { ok: 0x59d1a0, warn: 0xe8b84a, bad: 0xff7a7a };
-  let dyn = null, camSet = null;
+  let dyn = null, camSet = null, ptSize = 0.012;
   const isSel = (kind, i) => sel && sel.kind === kind && (kind === "veh" || sel.i === i);
   function axes(o, dirs, len) {
     const g = new THREE.Group(); [0xff4d4d, 0x4dd96b, 0x4d8dff].forEach((c, k) => { const e = o.clone().add(dirs[k].clone().normalize().multiplyScalar(len)); g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([o, e]), new THREE.LineBasicMaterial({ color: c }))); }); return g; }
@@ -329,8 +338,15 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
       const pl = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 1.0), new THREE.MeshLambertMaterial({ color: col, transparent: true, opacity: on ? .5 : .3, side: THREE.DoubleSide }));
       pl.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...B.u), new THREE.Vector3(0, 0, 1), new THREE.Vector3(...B.n))); pl.position.set(...B.c); pl.userData = { kind: "stand", i: br.i }; dyn.add(pl); picks.push(pl);
       const ee = new THREE.LineSegments(new THREE.EdgesGeometry(pl.geometry), new THREE.LineBasicMaterial({ color: on ? 0xffffff : col })); ee.quaternion.copy(pl.quaternion); ee.position.copy(pl.position); dyn.add(ee);
-      if (withPts) for (let k = 0; k < br.pts.length; k++) pts.push(br.pts[k]); });
-    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xff3b3b, size: .012 }))); }
+      if (withPts) for (let k = 0; k < br.pts.length; k++) pts.push(br.pts[k]);
+      if (br.det.length && (!focus || br.det.includes(focus))) {
+        const U = new THREE.Vector3(...B.u), Z = new THREE.Vector3(0, 0, 1), N = new THREE.Vector3(...B.n), C0 = new THREE.Vector3(...B.c).add(N.clone().multiplyScalar(0.012));
+        const at = (a, b) => C0.clone().add(U.clone().multiplyScalar(a)).add(Z.clone().multiplyScalar(b)), lp = [];
+        [[-0.55, 0.35], [0.55, 0.35], [-0.55, -0.35], [0.55, -0.35]].forEach(([a, b]) => { const q = [at(a - .1, b - .1), at(a + .1, b - .1), at(a + .1, b + .1), at(a - .1, b + .1)]; q.forEach((v, k) => lp.push(v, q[(k + 1) % 4])); });
+        [[-0.25, 0.2], [0.25, 0.2], [-0.25, -0.2], [0.25, -0.2]].forEach(([a, b]) => { for (let k = 0; k < 32; k++) { const t0 = k / 32 * 6.283, t1 = (k + 1) / 32 * 6.283; lp.push(at(a + .12 * Math.cos(t0), b + .12 * Math.sin(t0)), at(a + .12 * Math.cos(t1), b + .12 * Math.sin(t1))); } });
+        dyn.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(lp), new THREE.LineBasicMaterial({ color: 0x29b6f6 })));
+      } });
+    if (pts.length) { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3)); dyn.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xff3b3b, size: ptSize }))); }
     if (camSet !== key) { camSet = key; cam.position.set(cx - 15, cy - 14, 13); ctl.target.set(cx + 2, cy, 1.2); ctl.update(); }
   }
   function loop() { ctl.update(); rd.render(sc, cam); requestAnimationFrame(loop); }
@@ -417,6 +433,7 @@ button:focus-visible, select:focus-visible, a:focus-visible, input:focus-visible
     const done = m => { $("copied").textContent = m; setTimeout(() => $("copied").textContent = "", 2500); };
     if (navigator.clipboard) navigator.clipboard.writeText(t).then(() => done("복사됨"), () => done("복사 실패: 브라우저가 막음")); else done("복사 미지원"); };
   window.addEventListener("keydown", e => { if (e.key === "Escape") { sel = null; refresh(); } });
+  $("psize").addEventListener("input", e => { ptSize = parseFloat(e.target.value); $("psize-o").textContent = Math.round(ptSize * 1000) + " mm"; dyn && dyn.traverse(o => { if (o.isPoints) o.material.size = ptSize; }); });
   function route() { const k = (location.hash || "").slice(1); load(PRE[k] ? k : "fantag"); }
   window.addEventListener("hashchange", route); route(); loop();
 })();
