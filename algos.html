@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>캘리브레이션 알고리즘 비교</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+:root {
+  --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
+  --sky: #1e9bd7; --navy: #002b68; --warn: #e8b84a; --ok: #5fd39a; --pink: #e57aa6;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 14px; }
+.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; padding: 2px 4px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; margin-top: 2px; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; }
+.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
+.links a:hover { color: var(--fg); border-color: var(--sky); }
+.links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 10px; min-height: 0; }
+.left { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 10px; min-height: 0; min-width: 0; }
+.cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 10px; min-height: 0; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; min-height: 0; }
+.m { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); gap: 6px 12px; border-top: 3px solid var(--c); }
+.m .hd { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.m .hd b { font-size: 14px; } .m .hd b span { color: var(--c); }
+.m .hd a { color: var(--muted); font-size: 11px; text-decoration: none; border-bottom: 1px dotted var(--muted); }
+.m .hd a:hover { color: var(--fg); }
+.m canvas { width: 100%; height: 100%; min-height: 150px; display: block; background: #0a1017; border-radius: 6px; }
+.m .info { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.big { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; align-items: baseline; }
+.big dt { color: var(--muted); font-size: 12px; } .big dd { margin: 0; font: 600 20px var(--f-mono); font-variant-numeric: tabular-nums; text-align: right; }
+.big dd.na { font: 600 13px var(--f-ui); color: var(--warn); }
+.feat { font-size: 11.5px; color: var(--muted); line-height: 1.5; margin: 0; }
+.feat b { color: var(--fg); font-weight: 600; }
+.mc { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 16px; }
+.mc .hd { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mc canvas { width: 100%; height: 150px; display: block; }
+h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; }
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 9px; }
+.how { font-size: 12px; line-height: 1.6; color: var(--muted); background: rgba(30,155,215,.07); border: 1px solid rgba(30,155,215,.3); border-radius: 8px; padding: 8px 10px; margin: 0; }
+.how b { color: var(--fg); }
+.disc { font-size: 12px; font-weight: 700; color: #2a1d00; background: var(--warn); border-radius: 6px; padding: 5px 10px; text-align: center; }
+.seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.seg button { font: 600 12px var(--f-ui); color: var(--muted); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; cursor: pointer; }
+.seg button[aria-pressed="true"] { color: #fff; background: var(--navy); border-color: var(--sky); }
+.sz { display: grid; grid-template-columns: 96px minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.sz input { width: 100%; accent-color: var(--sky); margin: 0; }
+.sz output { font: 12px var(--f-mono); color: var(--fg); text-align: right; }
+.lbl { font-size: 11px; color: var(--muted); letter-spacing: .05em; border-top: 1px solid var(--line); padding-top: 8px; }
+button.b { font: 600 13px var(--f-ui); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+button.b:hover { border-color: var(--sky); } button.b.pri { background: var(--navy); border-color: var(--sky); color: #fff; }
+button:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.note { font-size: 11.5px; color: var(--muted); line-height: 1.55; margin: 0; }
+.note b { color: var(--fg); }
+.stale { font-size: 11px; color: var(--warn); }
+@media (max-width: 1100px) { .app { height: auto; min-height: 100%; } .cards { grid-auto-rows: auto; } .m canvas { height: 190px; } }
+@media (max-width: 820px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .cards { grid-template-columns: minmax(0, 1fr); }
+  .mc { grid-template-columns: minmax(0, 1fr); }
+  .left { order: 1; } aside { order: 2; }
+  .links a { padding: 6px 11px; font-size: 12px; }
+}
+@media (max-width: 420px) { .m { grid-template-columns: minmax(0, 1fr); } .m canvas { height: 200px; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hrow">
+    <div class="brand">LiDAR–카메라 캘리브레이션 알고리즘 비교 (시뮬레이션)<small>같은 가상 환경에서 4가지 타깃 기반 방법의 특징 추출 → 외부 파라미터 추정 오차 비교</small></div>
+    <nav class="links" aria-label="시뮬레이터 목록">
+      <a href="./index.html">3D 뷰어</a><a href="./basics.html">기초 체험</a><a href="./algos.html" aria-current="page">알고리즘 비교</a><a href="./roi.html">ROI</a><a href="./ransac.html">RANSAC</a><a href="./register.html">정합</a><a href="./miscal.html">이상 감지</a>
+    </nav>
+  </header>
+  <main>
+    <div class="left">
+      <div class="cards" id="cards"></div>
+      <section class="card mc">
+        <div class="hd"><h2>몬테카를로 100회 · 평균 ± 표준편차 <span id="mcinfo" class="stale"></span></h2><button class="b pri" id="mcbtn">100회 반복</button></div>
+        <canvas id="mcR" aria-label="방법별 회전 오차 막대그래프"></canvas>
+        <canvas id="mcT" aria-label="방법별 이동 오차 막대그래프"></canvas>
+      </section>
+    </div>
+    <aside>
+      <div class="disc">단순화한 시뮬레이션 — 논문 수치 재현이 아님</div>
+      <p class="how"><b>어떻게 보나요</b> — 각 카드의 그림은 첫 번째 보드를 보드 좌표로 편 것입니다. 회색 점 = 보드에 맞은 LiDAR 점, <b>색 점</b> = 그 방법이 특징으로 쓴 점, <b>×</b> = 추정 특징(모서리·코너·구멍 중심), 흰 원 = 정답. 특징들을 카메라 쪽 대응점과 맞춰(Kabsch/SVD) 외부 파라미터를 구하고, 정답과의 회전·이동 오차를 보여줍니다.</p>
+      <div class="lbl">LiDAR 종류</div>
+      <div class="seg" id="lidar" role="group" aria-label="LiDAR 종류"></div>
+      <div class="lbl">환경</div>
+      <label class="sz">보드 거리<input type="range" id="dist" min="2" max="8" step="0.5" value="5"><output id="dist-o"></output></label>
+      <label class="sz">거리 노이즈 σ<input type="range" id="noise" min="0" max="3" step="0.1" value="1"><output id="noise-o"></output></label>
+      <label class="sz">보드/자세 수<input type="range" id="nb" min="1" max="6" step="1" value="3"><output id="nb-o"></output></label>
+      <label class="sz">반사강도 대비<input type="range" id="con" min="0" max="1" step="0.05" value="0.5"><output id="con-o"></output></label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b" id="resample">다른 배치로 다시</button></div>
+      <p class="note" id="scaninfo"></p>
+      <div class="lbl">모델에 넣은 것</div>
+      <p class="note"><b>링 간격</b>: 기계식은 수직 방향으로 링 사이가 비어 보드 위·아래 끝과 구멍 가장자리가 링 위치로 양자화됩니다. <b>빔 퍼짐</b>: 발산각×거리의 절반만큼 보드 외곽은 커지고 구멍은 작아 보입니다(edge dilation). <b>반사강도</b>: 체커 흑/백 = 0.5 ± 대비/2, 빔 면적 평균 + 노이즈 0.05. Livox는 비반복 스캔 1초 누적(보드 주변 점 2만 개 상한)을 균일 랜덤 방향으로 근사. 카메라 쪽 특징은 정답 + 작은 PnP 노이즈(거리² 비례)로 모든 방법에 동일.</p>
+      <p class="note"><b>단순화</b>: 최종 추정은 모든 방법에서 대응점 Kabsch(SVD)로 통일했고, 각 논문의 후단 최적화·이상치 처리는 생략했습니다. 보드 방향(순서)은 마커로 안다고 가정합니다. Velo2Cam 원 파이프라인은 링 구조(연속 스캔선)의 깊이 불연속을 쓰므로 Livox에서는 N/A로 표시합니다.</p>
+    </aside>
+  </main>
+</div>
+<script>
+//<core>
+"use strict";
+const D2R = Math.PI / 180;
+const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]], sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const scl = (a, s) => [a[0]*s, a[1]*s, a[2]*s], dot = (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const nrm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0]/l, a[1]/l, a[2]/l]; };
+const mv = (R, v) => [R[0]*v[0]+R[1]*v[1]+R[2]*v[2], R[3]*v[0]+R[4]*v[1]+R[5]*v[2], R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+const mm = (a, b) => { const r = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r.push(a[i*3]*b[j]+a[i*3+1]*b[3+j]+a[i*3+2]*b[6+j]); return r; };
+const tr = a => [a[0],a[3],a[6],a[1],a[4],a[7],a[2],a[5],a[8]];
+const rx = t => { const c = Math.cos(t), s = Math.sin(t); return [1,0,0, 0,c,-s, 0,s,c]; };
+const ry = t => { const c = Math.cos(t), s = Math.sin(t); return [c,0,s, 0,1,0, -s,0,c]; };
+const rz = t => { const c = Math.cos(t), s = Math.sin(t); return [c,-s,0, s,c,0, 0,0,1]; };
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let rand = mulberry(1);
+const U = (a, b) => a + (b - a) * rand();
+const gauss = () => { let u = 0; while (u === 0) u = rand(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand()); };
+
+// symmetric eigen-decomposition (Jacobi). returns {val:[], vec:[[col0],[col1],...]} sorted by descending value
+function eig(A) {
+  const n = A.length, a = A.map(r => r.slice()), V = A.map((r, i) => r.map((_, j) => i === j ? 1 : 0));
+  for (let sw = 0; sw < 60; sw++) {
+    let off = 0; for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) off += a[p][q] * a[p][q];
+    if (off < 1e-22) break;
+    for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) {
+      if (Math.abs(a[p][q]) < 1e-300) continue;
+      const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+      for (let k = 0; k < n; k++) { const x = a[k][p], y = a[k][q]; a[k][p] = c*x - s*y; a[k][q] = s*x + c*y; }
+      for (let k = 0; k < n; k++) { const x = a[p][k], y = a[q][k]; a[p][k] = c*x - s*y; a[q][k] = s*x + c*y; }
+      for (let k = 0; k < n; k++) { const x = V[k][p], y = V[k][q]; V[k][p] = c*x - s*y; V[k][q] = s*x + c*y; }
+    }
+  }
+  const idx = [...Array(n).keys()].sort((i, j) => a[j][j] - a[i][i]);
+  return { val: idx.map(i => a[i][i]), vec: idx.map(i => V.map(r => r[i])) };
+}
+// Kabsch / Horn (unit quaternion) : find R,t minimizing Σ|q - (R p + t)|²
+function kabsch(P, Q) {
+  const n = P.length; let mp = [0,0,0], mq = [0,0,0];
+  for (let i = 0; i < n; i++) { mp = add(mp, P[i]); mq = add(mq, Q[i]); }
+  mp = scl(mp, 1/n); mq = scl(mq, 1/n);
+  const S = [0,0,0,0,0,0,0,0,0];
+  for (let i = 0; i < n; i++) { const p = sub(P[i], mp), q = sub(Q[i], mq); for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) S[a*3+b] += p[a] * q[b]; }
+  const [xx, xy, xz, yx, yy, yz, zx, zy, zz] = S;
+  const N = [[xx+yy+zz, yz-zy, zx-xz, xy-yx], [yz-zy, xx-yy-zz, xy+yx, zx+xz], [zx-xz, xy+yx, -xx+yy-zz, yz+zy], [xy-yx, zx+xz, yz+zy, -xx-yy+zz]];
+  const [w, x, y, z] = eig(N).vec[0];
+  const R = [1-2*(y*y+z*z), 2*(x*y-w*z), 2*(x*z+w*y), 2*(x*y+w*z), 1-2*(x*x+z*z), 2*(y*z-w*x), 2*(x*z-w*y), 2*(y*z+w*x), 1-2*(x*x+y*y)];
+  return { R, t: sub(mq, mv(R, mp)) };
+}
+const rotErr = (Ra, Rb) => { const M = mm(Ra, tr(Rb)); return Math.acos(Math.max(-1, Math.min(1, (M[0] + M[4] + M[8] - 1) / 2))) / D2R; };
+
+// ---------- targets ----------
+const BW = 0.5, BH = 0.4, SQ = 0.2, HR = 0.12;                 // board 1.0 × 0.8 m
+const HOLES = [[-0.25, 0.18], [0.25, 0.18], [-0.25, -0.18], [0.25, -0.18]];
+const OUTC = [[-BW, -BH], [BW, -BH], [BW, BH], [-BW, BH]];
+const CORN = []; for (const b of [-0.2, 0, 0.2]) for (const a of [-0.3, -0.1, 0.1, 0.3]) CORN.push([a, b]);
+const LIDARS = {
+  m16:   { label: "기계식 16ch",  mech: true, ch: 16,  v0: -15,  v1: 15,   h: 0.2,  div: 3.0e-3 },
+  m32:   { label: "기계식 32ch",  mech: true, ch: 32,  v0: -16,  v1: 15,   h: 0.2,  div: 3.0e-3 },
+  m128:  { label: "기계식 128ch", mech: true, ch: 128, v0: -22.5, v1: 22.5, h: 0.18, div: 3.1e-3 },
+  livox: { label: "고체 Livox (비반복)", mech: false, dens: 56, cap: 20000, div: 4.9e-3 },
+};
+// ground-truth extrinsic LiDAR -> camera (camera: x right, y down, z forward)
+const R_AX = [0,-1,0, 0,0,-1, 1,0,0];
+const R_TRUE = mm(mm(rz(0.8*D2R), mm(ry(-1.5*D2R), rx(1.1*D2R))), R_AX), T_TRUE = [0.06, -0.11, -0.09];
+
+function makePoses(n, d) {
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const az = (n === 1 ? 0 : -18 + 36 * k / (n - 1)) * D2R + U(-2, 2) * D2R;
+    const dist = d + U(-0.3, 0.3), z = U(-0.2, 0.2), psi = U(-25, 25) * D2R, tau = U(-10, 10) * D2R;
+    const c = [dist * Math.cos(az), dist * Math.sin(az), z], Rb = mm(rz(az + psi), ry(tau));
+    const frame = roll => {
+      const cr = Math.cos(roll), sr = Math.sin(roll), u0 = [0, -1, 0], v0 = [0, 0, 1];
+      const u = mv(Rb, add(scl(u0, cr), scl(v0, sr))), v = mv(Rb, add(scl(u0, -sr), scl(v0, cr)));
+      return { c, u, v, n: cross(u, v) };
+    };
+    out.push({ chk: frame(45 * D2R), hole: frame(0) });   // checker targets placed as a diamond, hole targets upright
+  }
+  return out;
+}
+const local3 = (f, a, b) => add(f.c, add(scl(f.u, a), scl(f.v, b)));
+function pattern(a, b) { const i = Math.min(4, Math.max(0, Math.floor((a + BW) / SQ))), j = Math.min(3, Math.max(0, Math.floor((b + BH) / SQ))); return (i + j) % 2 === 0 ? 1 : 0; }
+
+// trace one beam against the target. Returns board hit (with noise / intensity) or background.
+function trace(d, f, kind, L, P) {
+  const den = dot(d, f.n); if (Math.abs(den) < 1e-6) return null;
+  const t = dot(f.c, f.n) / den; if (t <= 0) return null;
+  const q = sub(scl(d, t), f.c), a = dot(q, f.u), b = dot(q, f.v);
+  const fp = 0.5 * L.div * t;                       // footprint radius; edges dilate by this much
+  let on = Math.abs(a) <= BW + fp && Math.abs(b) <= BH + fp;
+  if (on && kind === "hole") for (const h of HOLES) if ((a - h[0]) ** 2 + (b - h[1]) ** 2 < (HR - fp) ** 2) { on = false; break; }
+  if (!on) return { board: false, r: t + 1.5 };
+  const r = t + P.sigma * gauss(), p = scl(d, r);
+  let I = 0;
+  if (kind === "chk") {
+    const w = (pattern(a, b) + pattern(a + fp, b) + pattern(a - fp, b) + pattern(a, b + fp) + pattern(a, b - fp)) / 5;
+    I = 0.5 + P.con * (w - 0.5) + 0.05 * gauss();
+  }
+  return { board: true, p, I, r };
+}
+function angBox(f) {
+  let az0 = 1e9, az1 = -1e9, el0 = 1e9, el1 = -1e9;
+  for (const [sa, sb] of [[-1,-1],[1,-1],[1,1],[-1,1]]) {
+    const p = local3(f, sa * (BW + 0.06), sb * (BH + 0.06)), az = Math.atan2(p[1], p[0]) / D2R, el = Math.atan2(p[2], Math.hypot(p[0], p[1])) / D2R;
+    az0 = Math.min(az0, az); az1 = Math.max(az1, az); el0 = Math.min(el0, el); el1 = Math.max(el1, el);
+  }
+  return { az0, az1, el0, el1 };
+}
+const dirOf = (az, el) => { const a = az * D2R, e = el * D2R; return [Math.cos(e)*Math.cos(a), Math.cos(e)*Math.sin(a), Math.sin(e)]; };
+function scan(f, kind, L, P) {
+  const bx = angBox(f), pts = [], rings = [];
+  if (L.mech) {
+    for (let i = 0; i < L.ch; i++) {
+      const el = L.v0 + i * (L.v1 - L.v0) / (L.ch - 1); if (el < bx.el0 || el > bx.el1) continue;
+      const ring = [];
+      for (let k = Math.ceil(bx.az0 / L.h); k <= Math.floor(bx.az1 / L.h); k++) {
+        const s = trace(dirOf(k * L.h, el), f, kind, L, P); if (!s) continue;
+        s.el = el; s.ring = rings.length; if (s.board) pts.push(s); ring.push(s);
+      }
+      rings.push(ring);
+    }
+    return { pts, rings, T: 0.1 };
+  }
+  const area = (bx.az1 - bx.az0) * (bx.el1 - bx.el0), nExp = L.dens * area, N = Math.min(L.cap, nExp);
+  for (let i = 0; i < N; i++) { const el = U(bx.el0, bx.el1), s = trace(dirOf(U(bx.az0, bx.az1), el), f, kind, L, P); if (s && s.board) { s.el = el; pts.push(s); } }
+  return { pts, rings: null, T: Math.min(1, L.cap / nExp) };
+}
+
+// plane fit + coarse in-plane board frame (PCA; sign/order resolved with the marker-known orientation)
+function boardFrame(pts, f) {
+  const P = pts.map(s => s.p), n = P.length; let m = [0,0,0]; for (const p of P) m = add(m, p); m = scl(m, 1/n);
+  const C = [[0,0,0],[0,0,0],[0,0,0]];
+  for (const p of P) { const q = sub(p, m); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) C[i][j] += q[i]*q[j]; }
+  const E = eig(C), e1 = E.vec[0], nn = E.vec[2], e2 = cross(nn, e1);
+  const to2 = p => { const q = sub(p, m); return [dot(q, e1), dot(q, e2)]; };
+  const uu = [dot(f.u, e1), dot(f.u, e2)], cand = [[1,0],[-1,0],[0,1],[0,-1]];
+  const ax = cand.reduce((b, c) => (c[0]*uu[0]+c[1]*uu[1] > b[0]*uu[0]+b[1]*uu[1] ? c : b));
+  let bx = [-ax[1], ax[0]]; const vv = [dot(f.v, e1), dot(f.v, e2)]; if (bx[0]*vv[0] + bx[1]*vv[1] < 0) bx = [-bx[0], -bx[1]];
+  let a0 = 1e9, a1 = -1e9, b0 = 1e9, b1 = -1e9;
+  const xy = P.map(to2);
+  for (const q of xy) { const A = q[0]*ax[0]+q[1]*ax[1], B = q[0]*bx[0]+q[1]*bx[1]; a0 = Math.min(a0, A); a1 = Math.max(a1, A); b0 = Math.min(b0, B); b1 = Math.max(b1, B); }
+  const o = [(a0 + a1) / 2, (b0 + b1) / 2];
+  const toL = p => { const q = to2(p); return [q[0]*ax[0]+q[1]*ax[1] - o[0], q[0]*bx[0]+q[1]*bx[1] - o[1]]; };
+  const to3 = (a, b) => { const A = a + o[0], B = b + o[1], x = A*ax[0] + B*bx[0], y = A*ax[1] + B*bx[1]; return add(m, add(scl(e1, x), scl(e2, y))); };
+  return { toL, to3, n: nn };
+}
+function fitLine(Q) { // TLS line in 2D: point + direction
+  let mx = 0, my = 0; for (const q of Q) { mx += q[0]; my += q[1]; } mx /= Q.length; my /= Q.length;
+  let sxx = 0, sxy = 0, syy = 0; for (const q of Q) { const x = q[0]-mx, y = q[1]-my; sxx += x*x; sxy += x*y; syy += y*y; }
+  const th = 0.5 * Math.atan2(2*sxy, sxx - syy); return { p: [mx, my], d: [Math.cos(th), Math.sin(th)] };
+}
+function inter(l1, l2) { const det = l1.d[0]*(-l2.d[1]) - l1.d[1]*(-l2.d[0]); if (Math.abs(det) < 1e-9) return null; const rx_ = l2.p[0]-l1.p[0], ry_ = l2.p[1]-l1.p[1]; const s = (rx_*(-l2.d[1]) - ry_*(-l2.d[0])) / det; return [l1.p[0] + s*l1.d[0], l1.p[1] + s*l1.d[1]]; }
+function circleKnownR(Q, c0) { // Gauss-Newton, fixed radius HR; null if it runs away from the prior
+  let c = c0.slice();
+  for (let it = 0; it < 20; it++) {
+    let a = 1e-4, b = 0, d = 1e-4, g0 = 0, g1 = 0;
+    for (const q of Q) { const dx = q[0]-c[0], dy = q[1]-c[1], r = Math.hypot(dx, dy) || 1e-9, res = r - HR, jx = -dx/r, jy = -dy/r; a += jx*jx; b += jx*jy; d += jy*jy; g0 += jx*res; g1 += jy*res; }
+    const det = a*d - b*b; let sx = (d*g0 - b*g1) / det, sy = (-b*g0 + a*g1) / det; const sl = Math.hypot(sx, sy); if (sl > 0.02) { sx *= 0.02/sl; sy *= 0.02/sl; }
+    c[0] -= sx; c[1] -= sy;
+  }
+  return Math.hypot(c[0]-c0[0], c[1]-c0[1]) < 0.08 ? c : null;
+}
+function solve3(A, b) { const det3 = M => M[0][0]*(M[1][1]*M[2][2]-M[1][2]*M[2][1]) - M[0][1]*(M[1][0]*M[2][2]-M[1][2]*M[2][0]) + M[0][2]*(M[1][0]*M[2][1]-M[1][1]*M[2][0]); const D = det3(A); if (Math.abs(D) < 1e-18) return null; return [0,1,2].map(k => det3(A.map((row, i) => row.map((v, j) => j === k ? b[i] : v))) / D); }
+// geometric check: distances between found features must match the known target layout
+function consistent(est, ids, layout, tol) { for (let i = 0; i < est.length; i++) for (let j = i + 1; j < est.length; j++) { const a = layout[ids[i]], b = layout[ids[j]]; if (Math.abs(Math.hypot(...sub(est[i], est[j])) - Math.hypot(a[0]-b[0], a[1]-b[1])) > tol) return false; } return true; }
+// ---------- the four methods (feature extraction on one board) ----------
+function zhou(sc, f, L) {
+  if (sc.pts.length < 10) return null;
+  const F = boardFrame(sc.pts, f); let edges = [];
+  if (L.mech) for (const ring of sc.rings) { const b = ring.filter(s => s.board); if (b.length >= 2) edges.push(b[0], b[b.length - 1]); }
+  else { let e0 = 1e9, e1 = -1e9; for (const s of sc.pts) { e0 = Math.min(e0, s.el); e1 = Math.max(e1, s.el); }
+    const bh = Math.max(0.1, (e1 - e0) / Math.max(4, sc.pts.length / 40));   // virtual scan lines: ~40 points per elevation band
+    const bands = new Map(); for (const s of sc.pts) { const k = Math.floor(s.el / bh); const az = Math.atan2(s.p[1], s.p[0]); const e = bands.get(k) || { lo: s, hi: s, al: az, ah: az }; if (az < e.al) { e.lo = s; e.al = az; } if (az > e.ah) { e.hi = s; e.ah = az; } bands.set(k, e); } for (const e of bands.values()) if (e.lo !== e.hi) edges.push(e.lo, e.hi); }
+  const grp = [[], [], [], []], used = [];
+  for (const s of edges) { const [a, b] = F.toL(s.p); const ds = [Math.abs(b + BH), Math.abs(a - BW), Math.abs(b - BH), Math.abs(a + BW)]; const k = ds.indexOf(Math.min(...ds)); grp[k].push([a, b]); used.push(s.p); }
+  if (grp.some(g => g.length < 2)) return { fail: true, used };
+  const lines = grp.map(fitLine), cs = [inter(lines[0], lines[3]), inter(lines[0], lines[1]), inter(lines[1], lines[2]), inter(lines[2], lines[3])];
+  if (cs.some(c => !c)) return { fail: true, used };
+  const est = cs.map(c => F.to3(c[0], c[1]));
+  if (!consistent(est, [0, 1, 2, 3], OUTC, 0.05)) return { fail: true, used, est };
+  return { est, tru: OUTC.map(c => local3(f, c[0], c[1])), used };
+}
+function acsc(sc, f) {
+  if (sc.pts.length < 30) return null;
+  const F = boardFrame(sc.pts, f), step = Math.max(1, Math.floor(sc.pts.length / 800)), A = [], B = [], I = [];
+  for (let i = 0; i < sc.pts.length; i += step) { const [a, b] = F.toL(sc.pts[i].p); A.push(a); B.push(b); I.push(sc.pts[i].I); }
+  const mI = I.reduce((s, v) => s + v, 0) / I.length;
+  const score = (da, db, dt) => { const c = Math.cos(dt), s = Math.sin(dt); let sum = 0; for (let i = 0; i < A.length; i++) { const x = A[i] - da, y = B[i] - db, a = c*x + s*y, b = -s*x + c*y; sum += (I[i] - mI) * Math.tanh(3 * Math.sin(Math.PI * (a + BW) / SQ) * Math.sin(Math.PI * (b + BH) / SQ)); } return sum; };
+  let best = [0, 0, 0], bs = -1e18;
+  for (let dt = -6; dt <= 6.01; dt += 1.5) for (let da = -0.06; da <= 0.0601; da += 0.03) for (let db = -0.06; db <= 0.0601; db += 0.03) { const s = score(da, db, dt * D2R); if (s > bs) { bs = s; best = [da, db, dt * D2R]; } }
+  let st = [0.015, 0.015, 0.75 * D2R];
+  for (let it = 0; it < 6; it++) { let imp = true; while (imp) { imp = false; for (let k = 0; k < 3; k++) for (const sg of [-1, 1]) { const c = best.slice(); c[k] += sg * st[k]; const s = score(c[0], c[1], c[2]); if (s > bs) { bs = s; best = c; imp = true; } } } st = st.map(v => v / 2); }
+  const [da, db, dt] = best, c = Math.cos(dt), s = Math.sin(dt);
+  return { est: CORN.map(([a, b]) => F.to3(c*a - s*b + da, s*a + c*b + db)), tru: CORN.map(([a, b]) => local3(f, a, b)), used: sc.pts.filter((_, i) => i % step === 0).map(q => q.p), inten: true };
+}
+function velo2cam(sc, f, L) {
+  if (!L.mech) return { na: true };
+  if (sc.pts.length < 10) return null;
+  const F = boardFrame(sc.pts, f), grp = [[], [], [], []], used = [];
+  for (const ring of sc.rings) {
+    for (let i = 0; i < ring.length; i++) {
+      if (!ring[i].board) continue; let j = i + 1; while (j < ring.length && !ring[j].board) j++;
+      if (j < ring.length && j > i + 1 && (j - i - 1) * L.h * D2R * ring[i].r < 0.32) {   // board → (gap) → board : depth discontinuity pair
+        for (const s of [ring[i], ring[j]]) { const q = F.toL(s.p); let k = -1, bd = 1e9; HOLES.forEach((h, n) => { const d = Math.hypot(q[0]-h[0], q[1]-h[1]); if (d < bd) { bd = d; k = n; } }); if (bd < HR + 0.08) { grp[k].push(q); used.push(s.p); } }
+      }
+    }
+  }
+  const est = [], tru = [], ids = [];
+  grp.forEach((g, k) => { if (g.length >= 2) { const c = circleKnownR(g, HOLES[k]); if (c) { est.push(F.to3(c[0], c[1])); tru.push(local3(f, HOLES[k][0], HOLES[k][1])); ids.push(k); } } });
+  if (est.length < 3 || !consistent(est, ids, HOLES, 0.03)) return { fail: true, used, est };
+  return { est, tru, used };
+}
+function circleW(Q, c0, r) { // fixed-radius fit to the inner envelope: candidates lying outside the circle are down-weighted
+  let c = c0.slice();
+  for (let it = 0; it < 15; it++) {
+    let a = 1e-4, b = 0, d = 1e-4, g0 = 0, g1 = 0;
+    for (const q of Q) { const dx = q[0]-c[0], dy = q[1]-c[1], rr = Math.hypot(dx, dy) || 1e-9, res = rr - r, w = res > 0.004 ? 0.05 : 1, jx = -dx/rr, jy = -dy/rr; a += w*jx*jx; b += w*jx*jy; d += w*jy*jy; g0 += w*jx*res; g1 += w*jy*res; }
+    const det = a*d - b*b; let sx = (d*g0 - b*g1) / det, sy = (-b*g0 + a*g1) / det; const sl = Math.hypot(sx, sy); if (sl > 0.02) { sx *= 0.02/sl; sy *= 0.02/sl; }
+    c[0] -= sx; c[1] -= sy;
+  }
+  return Math.hypot(c[0]-c0[0], c[1]-c0[1]) < 0.08 ? c : null;
+}
+function fastcalib(sc, f) {
+  if (sc.pts.length < 10) return null;
+  const F = boardFrame(sc.pts, f), Q = sc.pts.map(s => F.toL(s.p)), tol = 0.6 * Math.sqrt(0.8 / sc.pts.length) + 0.004;
+  // 1) scan-pattern-agnostic edge candidates: nearest board point to each hole centre per angular sector
+  const pick = c => { const sec = new Array(48).fill(null); Q.forEach((q, i) => { const dx = q[0]-c[0], dy = q[1]-c[1], r = Math.hypot(dx, dy); if (r > HR + 0.07) return; const s = Math.floor((Math.atan2(dy, dx) + Math.PI) / (2*Math.PI) * 48) % 48; if (!sec[s] || r < sec[s].r) sec[s] = { r, i }; }); return sec.filter(s => s && s.r < HR + tol).map(s => s.i); };
+  let C = HOLES.map(h => h.slice()), r = HR, sel = [];
+  // 2) circles with ONE shared radius per board (edge dilation shrinks every hole equally) -> alternate centres / radius
+  for (let pass = 0; pass < 3; pass++) {
+    sel = C.map(c => c ? pick(c) : []);
+    C = C.map((c, k) => c && sel[k].length >= 2 ? circleW(sel[k].map(i => Q[i]), c, r) : null);
+    const ds = []; C.forEach((c, k) => { if (c) sel[k].forEach(i => { const d = Math.hypot(Q[i][0]-c[0], Q[i][1]-c[1]); if (d - r < 0.004) ds.push(d); }); });
+    if (ds.length >= 12) { ds.sort((x, y) => x - y); r = Math.min(HR, Math.max(HR - 0.03, ds[ds.length >> 1])); }
+  }
+  const est = [], tru = [], used = [], ids = [];
+  C.forEach((c, k) => { if (c) { est.push(F.to3(c[0], c[1])); tru.push(local3(f, HOLES[k][0], HOLES[k][1])); ids.push(k); sel[k].forEach(i => used.push(sc.pts[i].p)); } });
+  if (est.length < 3 || !consistent(est, ids, HOLES, 0.03)) return { fail: true, used, est };
+  return { est, tru, used, r };
+}
+const METHODS = [
+  { id: "zhou", short: "Zhou (체커)", name: "Checkerboard 계열", sub: "Zhou 2018 (IROS)", color: "#e8b84a", url: "https://ieeexplore.ieee.org/document/8593660", kind: "chk", fn: zhou,
+    feat: "<b>보드 평면 + 4변 직선</b> → 모서리 4개. 링 끝점이 변 위의 점이므로 링이 성기면 직선이 흔들리고, 빔 퍼짐만큼 변이 바깥으로 밀립니다." },
+  { id: "acsc", short: "ACSC", name: "ACSC", sub: "Cui 2020 · 반사강도 체커", color: "#e57aa6", url: "https://arxiv.org/abs/2011.08516", kind: "chk", fn: acsc,
+    feat: "<b>누적한 점의 반사강도</b>에 체커 무늬를 맞춰 내부 코너 12개. 점이 촘촘하고 흑백 대비가 커야 합니다." },
+  { id: "velo", short: "Velo2Cam", name: "Velo2Cam", sub: "Beltrán 2022 · 구멍 4개 + ArUco", color: "#5fd39a", url: "https://arxiv.org/abs/2101.04431", kind: "hole", fn: velo2cam,
+    feat: "<b>링 위 깊이 불연속</b>(보드→구멍) 점으로 반지름 고정 원 맞춤 → 구멍 중심. 구멍을 지나는 링이 적으면 불안정." },
+  { id: "fast", short: "FAST-Calib", name: "FAST-Calib", sub: "Zheng 2025 · 구멍 중심 + 원 맞춤", color: "#1e9bd7", url: "https://arxiv.org/abs/2507.17210", kind: "hole", fn: fastcalib,
+    feat: "<b>스캔 패턴 무관 가장자리</b> 추출 + 보드 공통 반지름을 추정하는 원 맞춤(퍼짐 보정) → 구멍 중심, 여러 보드를 한 번에 SVD." },
+];
+
+// one full trial: same poses / LiDAR for all methods
+function trial(P, seed, keep) {
+  rand = mulberry(seed);
+  const L = LIDARS[P.lidar], poses = makePoses(P.nb, P.dist), scans = poses.map(po => ({ chk: scan(po.chk, "chk", L, P), hole: scan(po.hole, "hole", L, P) }));
+  const res = {};
+  for (const M of METHODS) {
+    const Pl = [], Qc = []; let first = null, na = false, nf = 0;
+    poses.forEach((po, k) => {
+      const f = po[M.kind], r = M.fn(scans[k][M.kind], f, L);
+      if (k === 0) first = r;
+      if (!r) return; if (r.na) { na = true; return; } if (r.fail) return;
+      r.est.forEach((p, i) => {
+        const pc = add(mv(R_TRUE, r.tru[i]), T_TRUE), dd = Math.hypot(...pc), sl = 0.00015 * dd, sz = 0.0005 + 0.0001 * dd * dd, ray = nrm(pc);
+        const ex = nrm(cross(ray, [0, 1, 0])), ey = cross(ray, ex);
+        Pl.push(p); Qc.push(add(pc, add(add(scl(ex, sl * gauss()), scl(ey, sl * gauss())), scl(ray, sz * gauss())))); nf++;
+      });
+    });
+    if (na) { res[M.id] = { na: true, first }; continue; }
+    if (Pl.length < 3) { res[M.id] = { fail: true, first, nf }; continue; }
+    const E = kabsch(Pl, Qc);
+    res[M.id] = { rot: rotErr(E.R, R_TRUE), tr: Math.hypot(...sub(E.t, T_TRUE)) * 100, nf, first };
+  }
+  if (keep) { res.poses = poses; res.scans = scans; }
+  return res;
+}
+//</core>
+</script>
+<script>
+(function () {
+const P = { lidar: "m128", dist: 5, sigma: 0.01, nb: 3, con: 0.5 };
+let seed = 11;
+const $ = id => document.getElementById(id);
+// LiDAR buttons
+const lb = $("lidar");
+for (const k in LIDARS) { const b = document.createElement("button"); b.textContent = LIDARS[k].label; b.dataset.k = k; b.setAttribute("aria-pressed", k === P.lidar); b.onclick = () => { P.lidar = k; [...lb.children].forEach(x => x.setAttribute("aria-pressed", x.dataset.k === k)); changed(); }; lb.appendChild(b); }
+const sliders = [["dist", v => v.toFixed(1) + " m", v => P.dist = v], ["noise", v => v.toFixed(1) + " cm", v => P.sigma = v / 100], ["nb", v => v + "개", v => P.nb = v], ["con", v => v.toFixed(2), v => P.con = v]];
+for (const [id, f, set] of sliders) { const i = $(id), o = $(id + "-o"); const h = () => { set(+i.value); o.textContent = f(+i.value); }; h(); i.addEventListener("input", () => { h(); changed(); }); }
+$("resample").onclick = () => { seed += 1; render(); };
+
+// cards
+const cardsEl = $("cards"), C = {};
+for (const M of METHODS) {
+  const el = document.createElement("section"); el.className = "card m"; el.style.setProperty("--c", M.color);
+  el.innerHTML = `<div class="hd"><b><span>●</span> ${M.name} <small style="color:var(--muted);font-weight:400">${M.sub}</small></b><a href="${M.url}" target="_blank" rel="noopener">논문 ↗</a></div>
+    <canvas aria-label="${M.name} 특징 추출 보기"></canvas>
+    <div class="info"><dl class="big"><dt>회전 오차</dt><dd class="r">–</dd><dt>이동 오차</dt><dd class="t">–</dd></dl><p class="feat cnt"></p><p class="feat">${M.feat}</p></div>`;
+  cardsEl.appendChild(el); C[M.id] = { el, cv: el.querySelector("canvas"), r: el.querySelector(".r"), t: el.querySelector(".t"), cnt: el.querySelector(".cnt") };
+}
+function fitCanvas(cv) { const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1); const w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return { g, w: r.width, h: r.height }; }
+
+let last = null;
+function drawBoard(M, cv, res, f) {
+  const { g, w, h } = fitCanvas(cv); g.clearRect(0, 0, w, h);
+  const s = Math.min(w / 1.25, h / 1.05), ox = w / 2, oy = h / 2, X = a => ox + a * s, Y = b => oy - b * s;
+  const loc = p => { const q = sub(p, f.c); return [dot(q, f.u), dot(q, f.v)]; };
+  // target
+  if (M.kind === "chk") { for (let i = 0; i < 5; i++) for (let j = 0; j < 4; j++) { g.fillStyle = (i + j) % 2 === 0 ? "#2a3644" : "#141c26"; g.fillRect(X(-BW + i*SQ), Y(-BH + (j+1)*SQ), SQ*s + 0.5, SQ*s + 0.5); } }
+  else { g.fillStyle = "#1f2a37"; g.fillRect(X(-BW), Y(BH), 2*BW*s, 2*BH*s); g.fillStyle = "#0a1017"; for (const hh of HOLES) { g.beginPath(); g.arc(X(hh[0]), Y(hh[1]), HR*s, 0, 2*Math.PI); g.fill(); } }
+  g.strokeStyle = "#3b4b5e"; g.lineWidth = 1; g.strokeRect(X(-BW), Y(BH), 2*BW*s, 2*BH*s);
+  const sc = last.scans[0][M.kind];
+  for (const p of sc.pts) { const [a, b] = loc(p.p); if (M.id === "acsc") { const v = Math.max(0, Math.min(1, p.I)) * 200 + 30 | 0; g.fillStyle = `rgb(${v},${v},${v})`; } else g.fillStyle = "rgba(150,165,185,.55)"; g.fillRect(X(a) - 1, Y(b) - 1, 2, 2); }
+  const r = res.first;
+  if (res.na) { g.fillStyle = "#e8b84a"; g.font = "600 13px 'IBM Plex Sans KR', sans-serif"; g.textAlign = "center"; g.fillText("링 구조 없음 → 적용 불가", ox, 18); g.textAlign = "left"; return; }
+  if (!r) return;
+  if (M.id !== "acsc") { g.fillStyle = M.color; for (const p of r.used) { const [a, b] = loc(p); g.beginPath(); g.arc(X(a), Y(b), 2.6, 0, 2*Math.PI); g.fill(); } }
+  if (r.tru) { g.strokeStyle = "#fff"; g.lineWidth = 1.2; for (const p of r.tru) { const [a, b] = loc(p); g.beginPath(); g.arc(X(a), Y(b), 5, 0, 2*Math.PI); g.stroke(); } }
+  if (r.est) { g.strokeStyle = M.color; g.lineWidth = 2.2; for (const p of r.est) { const [a, b] = loc(p); const x = X(a), y = Y(b); g.beginPath(); g.moveTo(x-5, y-5); g.lineTo(x+5, y+5); g.moveTo(x+5, y-5); g.lineTo(x-5, y+5); g.stroke(); } }
+  if (r.fail) { g.fillStyle = "#e8b84a"; g.font = "600 12px 'IBM Plex Sans KR', sans-serif"; g.fillText("이 보드: 변 추출 실패(점 부족)", 8, 16); }
+}
+function render() {
+  last = trial(P, seed, true);
+  const L = LIDARS[P.lidar], n0c = last.scans[0].chk.pts.length, n0h = last.scans[0].hole.pts.length;
+  $("scaninfo").innerHTML = `첫 보드에 맞은 점: 체커 ${n0c}개 · 구멍 보드 ${n0h}개` + (L.mech ? ` · 링 간격 ${((L.v1 - L.v0) / (L.ch - 1)).toFixed(2)}° (보드에서 ≈ ${((L.v1 - L.v0) / (L.ch - 1) * D2R * P.dist * 100).toFixed(1)} cm)` : ` · 누적 ${last.scans[0].chk.T.toFixed(2)} s 상당`) + ` · 빔 퍼짐 ≈ ${(0.5 * L.div * P.dist * 100).toFixed(1)} cm`;
+  const v0 = L.mech ? L.v0 : -35, v1 = L.mech ? L.v1 : 35, cut = last.poses.some(po => ["chk", "hole"].some(k => { const b = angBox(po[k]); return b.el0 + 0.06 / P.dist / D2R < v0 || b.el1 - 0.06 / P.dist / D2R > v1; }));
+  if (cut) $("scaninfo").innerHTML += `<br><b style="color:var(--warn)">⚠ 일부 보드가 수직 시야(${v0}°~${v1}°)를 벗어나 잘립니다 — 거리를 늘려 보세요.</b>`;
+  for (const M of METHODS) {
+    const res = last[M.id], c = C[M.id];
+    if (res.na) { c.r.textContent = "N/A"; c.t.textContent = "링 필요"; c.r.className = "r na"; c.t.className = "t na"; c.cnt.textContent = "Livox 비반복 스캔: 연속 스캔선이 없어 원 파이프라인 적용 불가"; }
+    else if (res.fail) { c.r.textContent = "실패"; c.t.textContent = "특징 부족"; c.r.className = "r na"; c.t.className = "t na"; c.cnt.textContent = `대응점 ${res.nf}개 (3개 미만)`; }
+    else { c.r.textContent = res.rot.toFixed(3) + "°"; c.t.textContent = res.tr.toFixed(2) + " cm"; c.r.className = "r"; c.t.className = "t"; c.cnt.textContent = `대응점 ${res.nf}개 · 보드 ${P.nb}개`; }
+    drawBoard(M, c.cv, res, last.poses[0][M.kind]);
+  }
+}
+// Monte-Carlo
+let mc = null, mcRun = 0;
+function changed() { render(); if (mc) $("mcinfo").textContent = "· 설정 변경됨 — 다시 실행하세요"; scheduleMC(); }
+let mcTimer = null; function scheduleMC() { clearTimeout(mcTimer); mcTimer = setTimeout(runMC, 700); }
+function runMC() {
+  const id = ++mcRun, acc = {}; METHODS.forEach(M => acc[M.id] = { r: [], t: [], fail: 0, na: false });
+  let i = 0; $("mcbtn").disabled = true;
+  (function chunk() {
+    if (id !== mcRun) return;
+    const end = Math.min(100, i + 4);
+    for (; i < end; i++) { const r = trial(P, 1000 + i * 7919, false); for (const M of METHODS) { const x = r[M.id], a = acc[M.id]; if (x.na) a.na = true; else if (x.fail) a.fail++; else { a.r.push(x.rot); a.t.push(x.tr); } } }
+    $("mcinfo").textContent = `· 진행 ${i}/100`;
+    if (i < 100) { setTimeout(chunk, 0); return; }
+    mc = acc; $("mcbtn").disabled = false; $("mcinfo").textContent = `· ${LIDARS[P.lidar].label}, ${P.dist} m, σ ${(P.sigma*100).toFixed(1)} cm, 보드 ${P.nb}개`; drawMC();
+  })();
+}
+$("mcbtn").onclick = runMC;
+const stats = a => { if (!a.length) return null; const m = a.reduce((s, v) => s + v, 0) / a.length; const sd = Math.sqrt(a.reduce((s, v) => s + (v - m) ** 2, 0) / a.length); return { m, sd }; };
+function drawBars(cv, key, unit, title) {
+  const { g, w, h } = fitCanvas(cv); g.clearRect(0, 0, w, h);
+  g.font = "600 12px 'IBM Plex Sans KR', sans-serif"; g.fillStyle = "#8a9bb0"; g.fillText(title, 0, 12);
+  if (!mc) return;
+  const S = METHODS.map(M => ({ M, s: stats(mc[M.id][key]), a: mc[M.id] }));
+  const mx = Math.max(1e-6, ...S.filter(x => x.s).map(x => x.s.m + x.s.sd)) * 1.08;
+  const lw = 92, rw = 112, bw = Math.max(20, w - lw - rw), top = 22, rh = (h - top - 4) / 4;
+  S.forEach((x, k) => {
+    const y = top + k * rh, bh = Math.min(16, rh - 8), cy = y + rh / 2;
+    g.fillStyle = "#e6edf5"; g.font = "12px 'IBM Plex Sans KR', sans-serif"; g.textBaseline = "middle"; g.fillText(x.M.short, 0, cy);
+    g.fillStyle = "#1a2531"; g.fillRect(lw, cy - bh/2, bw, bh);
+    if (x.a.na) { g.fillStyle = "#e8b84a"; g.fillText("N/A (링 필요)", lw + 6, cy); return; }
+    if (!x.s) { g.fillStyle = "#e8b84a"; g.fillText(`실패 ${x.a.fail}/100`, lw + 6, cy); return; }
+    g.fillStyle = x.M.color; g.fillRect(lw, cy - bh/2, x.s.m / mx * bw, bh);
+    const x0 = lw + Math.max(0, x.s.m - x.s.sd) / mx * bw, x1 = lw + (x.s.m + x.s.sd) / mx * bw;
+    g.strokeStyle = "#e6edf5"; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x0, cy); g.lineTo(x1, cy); g.moveTo(x0, cy - 5); g.lineTo(x0, cy + 5); g.moveTo(x1, cy - 5); g.lineTo(x1, cy + 5); g.stroke();
+    g.fillStyle = "#e6edf5"; g.font = "12px 'IBM Plex Mono', monospace"; g.fillText(`${x.s.m.toFixed(key === "r" ? 3 : 2)} ± ${x.s.sd.toFixed(key === "r" ? 3 : 2)}${unit}`, lw + bw + 8, cy - (x.a.fail ? 6 : 0));
+    if (x.a.fail) { g.fillStyle = "#e8b84a"; g.font = "11px 'IBM Plex Sans KR', sans-serif"; g.fillText(`실패 ${x.a.fail}회 제외`, lw + bw + 8, cy + 8); }
+  });
+  g.textBaseline = "alphabetic";
+}
+function drawMC() { drawBars($("mcR"), "r", "°", "회전 오차 (°)"); drawBars($("mcT"), "t", " cm", "이동 오차 (cm)"); }
+let rz_ = null; new ResizeObserver(() => { clearTimeout(rz_); rz_ = setTimeout(() => { if (last) for (const M of METHODS) drawBoard(M, C[M.id].cv, last[M.id], last.poses[0][M.kind]); drawMC(); }, 60); }).observe(document.body);
+render(); drawMC(); runMC();
+})();
+</script>
+</body>
+</html>

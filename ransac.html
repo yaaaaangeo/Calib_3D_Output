@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RANSAC 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%}[hidden]{display:none!important}
+:root{--bg:#0b1118;--panel:#121b26;--line:#22303f;--fg:#e6edf5;--muted:#8a9bb0;--sky:#1e9bd7;--navy:#002b68;--warn:#e8b84a;--bad:#e2685f;--ok:#5fcf9a;--board:#c9d6e6;
+  --f-ui:"IBM Plex Sans KR","Malgun Gothic",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px}
+.app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);height:100%;padding:18px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));gap:12px}
+.hrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;padding:2px 4px}
+.brand{font-weight:700;font-size:17px;letter-spacing:.01em}.brand small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.links{display:flex;gap:6px;flex-wrap:wrap}
+.links a{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:6px 13px;white-space:nowrap}
+.links a:hover{color:var(--fg);border-color:var(--sky)}.links a[aria-current="page"]{color:#fff;background:var(--sky);border-color:var(--sky)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:10px;min-height:0}
+.stage{position:relative;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#13202d,var(--bg) 70%)}
+.stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lbl{position:absolute;transform:translate(-50%,-120%);font:500 11px var(--f-ui);color:var(--fg);background:rgba(11,17,24,.72);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.top{position:absolute;left:12px;top:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;pointer-events:none}
+.top>*{pointer-events:auto}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tab{font:600 13px var(--f-ui);color:var(--muted);background:rgba(11,17,24,.7);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+.tab[aria-selected="true"]{color:#fff;background:var(--sky);border-color:var(--sky)}
+.status{background:rgba(11,17,24,.84);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;line-height:1.5;max-width:420px}
+.status b{font-family:var(--f-mono);font-weight:500}
+.view{position:absolute;right:12px;bottom:12px;display:flex;gap:6px}
+.view button{font:500 12px var(--f-ui);color:var(--fg);background:rgba(18,27,38,.88);border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer}
+.legend{position:absolute;left:14px;bottom:12px;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);pointer-events:none;max-width:calc(100% - 210px)}
+.legend i{display:inline-block;width:14px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:10px}
+aside h2{margin:0;font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.how{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}.how b{color:var(--fg);font-weight:600}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.btn{font:600 12.5px var(--f-ui);color:var(--fg);background:#16222f;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+.btn:hover{border-color:var(--sky)}.btn.pri{background:var(--navy);border-color:var(--sky)}
+.btn[aria-pressed="true"]{background:rgba(232,184,74,.16);border-color:var(--warn);color:var(--warn)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.sz{display:grid;grid-template-columns:92px minmax(0,1fr) 62px;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.sz input{width:100%;accent-color:var(--sky)}.sz output{font:12px var(--f-mono);color:var(--fg);text-align:right}
+.big{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.big div{border:1px solid var(--line);border-radius:8px;padding:6px 8px}.big span{display:block;color:var(--muted);font-size:11px}.big b{font:600 17px var(--f-mono)}
+.big .best b{color:var(--sky)}
+.formula{border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:12.5px/1.7 var(--f-mono);background:#0e1620}
+.formula .k{font:11.5px/1.5 var(--f-ui);color:var(--muted)}
+.stats{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:12.5px;margin:0}
+.stats dt{color:var(--muted)}.stats dd{margin:0;font:500 12.5px var(--f-mono);text-align:right}
+#hist{width:100%;height:64px;display:block;border-radius:6px;background:#0e1620}
+.msg{font-size:12.5px;line-height:1.45;padding:6px 9px;border-radius:7px;border-left:3px solid var(--ok);background:rgba(95,207,154,.09)}
+.msg.bad{border-color:var(--bad);background:rgba(226,104,95,.10)}
+@media (max-width:820px){.app{height:auto;min-height:100%}main{grid-template-columns:minmax(0,1fr);align-content:start}.stage{height:60vh;min-height:380px}.legend{max-width:calc(100% - 28px);bottom:44px}.stage.m2d{height:470px;min-height:0}.stage.m2d .legend{bottom:10px}.status{font-size:11.5px}}
+</style></head><body>
+<div class="app">
+  <header><div class="hrow"><div class="brand">② RANSAC 직접 해보기<small>FAST-Calib 2단계 · 무작위로 뽑고, 모델 만들고, 가까운 점을 세고, 가장 많은 것을 남기기</small></div>
+    <nav class="links" aria-label="페이지"><a href="./index.html">3D 뷰어</a><a href="./basics.html">기초</a><a href="./algos.html">알고리즘</a><a href="./roi.html">① ROI</a><a href="./ransac.html" aria-current="page">② RANSAC</a><a href="./register.html">정합</a><a href="./miscal.html">오정합</a></nav></div></header>
+  <main>
+    <div class="stage m2d" id="stage">
+      <canvas id="c2" aria-label="2D 직선 RANSAC"></canvas>
+      <canvas id="c3" aria-label="3D 평면 RANSAC" hidden></canvas>
+      <div class="labels" id="labels"></div>
+      <div class="top"><div class="tabs" role="tablist"><button class="tab" role="tab" data-m="2d" aria-selected="true">2D 직선 (쉬운 버전)</button><button class="tab" role="tab" data-m="3d" aria-selected="false">3D 평면 (ROI 후 점군)</button></div>
+        <div class="status" id="status" aria-live="polite"></div></div>
+      <div class="legend" id="legend"></div>
+      <div class="view" id="view3" hidden><button id="v-obl">비스듬히</button><button id="v-edge">평면 옆에서</button></div>
+    </div>
+    <aside>
+      <section><h2>어떻게 보나요</h2>
+        <p class="how"><b>한 번 시도</b>: 점을 무작위로 몇 개(직선 2개, 평면 3개) 뽑아 모델을 만들고, 띠(± 임계값) 안의 점(inlier)을 셉니다. <b>자동 실행</b>은 이를 반복하며 inlier가 가장 많은 모델만 남깁니다. <b>최소제곱과 비교</b>를 켜면 모든 점을 평균 내는 방법이 이상치(의자·바닥)에 끌려가는 모습이 보입니다.</p></section>
+      <section style="display:grid;gap:6px"><h2>조절</h2>
+        <label class="sz">inlier 임계값<input type="range" id="thr" min="0.5" max="5" step="0.1" value="2"><output id="thr-o"></output></label>
+        <label class="sz">최대 반복<input type="range" id="iters" min="1" max="300" step="1" value="100"><output id="iters-o"></output></label>
+        <label class="sz">이상치 비율<input type="range" id="out" min="0" max="80" step="5" value="40"><output id="out-o"></output></label>
+        <div class="btns"><button class="btn pri" id="b-step">한 번 시도</button><button class="btn pri" id="b-auto">자동 실행</button>
+          <button class="btn" id="b-ls" aria-pressed="true">최소제곱과 비교</button><button class="btn" id="b-reset">처음부터 / 새 점</button></div></section>
+      <section style="display:grid;gap:8px"><h2>진행</h2>
+        <div class="big"><div><span>반복 #</span><b id="r-it">0</b></div><div><span>이번 inlier</span><b id="r-cur">–</b></div><div class="best"><span>최고 inlier</span><b id="r-best">–</b></div></div>
+        <canvas id="hist" aria-label="반복별 inlier 수"></canvas>
+        <div class="formula" id="formula"></div>
+        <dl class="stats" id="stats"></dl>
+        <div class="msg" id="msg"></div></section>
+    </aside>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+  // ---------------- math helpers ----------------
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  let seed = 11, rnd = rng(seed);
+  const gauss = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+  const dotn = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; };
+  const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const norm = a => Math.sqrt(dotn(a, a));
+  // symmetric Jacobi eigen-decomposition (n = 2 or 3); returns {vals, vecs (columns)}
+  function eigSym(A) {
+    const n = A.length, a = A.map(r => r.slice()), V = a.map((r, i) => r.map((_, j) => i === j ? 1 : 0));
+    for (let sweep = 0; sweep < 60; sweep++) {
+      let off = 0; for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) off += a[i][j] ** 2;
+      if (off < 1e-22) break;
+      for (let p = 0; p < n; p++) for (let q = p + 1; q < n; q++) {
+        if (Math.abs(a[p][q]) < 1e-30) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < n; k++) { const akp = a[k][p], akq = a[k][q]; a[k][p] = c * akp - s * akq; a[k][q] = s * akp + c * akq; }
+        for (let k = 0; k < n; k++) { const apk = a[p][k], aqk = a[q][k]; a[p][k] = c * apk - s * aqk; a[q][k] = s * apk + c * aqk; }
+        for (let k = 0; k < n; k++) { const vkp = V[k][p], vkq = V[k][q]; V[k][p] = c * vkp - s * vkq; V[k][q] = s * vkp + c * vkq; }
+      }
+    }
+    return { vals: a.map((r, i) => r[i]), vecs: V };
+  }
+  // total least squares: normal = eigenvector of the smallest covariance eigenvalue
+  function lsFit(pts) {
+    const k = pts[0].length, c = new Array(k).fill(0);
+    pts.forEach(p => { for (let i = 0; i < k; i++) c[i] += p[i] / pts.length; });
+    const C = Array.from({ length: k }, () => new Array(k).fill(0));
+    pts.forEach(p => { for (let i = 0; i < k; i++) for (let j = 0; j < k; j++) C[i][j] += (p[i] - c[i]) * (p[j] - c[j]); });
+    const e = eigSym(C); let m = 0; e.vals.forEach((v, i) => { if (v < e.vals[m]) m = i; });
+    const n = e.vecs.map(r => r[m]), L = norm(n);
+    const nn = n.map(x => x / L); return { n: nn, d: dotn(nn, c), c };
+  }
+  function fitSample(P, idx) {
+    if (idx.length === 2) {
+      const a = P[idx[0]], b = P[idx[1]], dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy); if (L < 1e-9) return null;
+      const n = [-dy / L, dx / L]; return { n, d: dotn(n, a) };
+    }
+    const a = P[idx[0]], n = cross([P[idx[1]][0] - a[0], P[idx[1]][1] - a[1], P[idx[1]][2] - a[2]], [P[idx[2]][0] - a[0], P[idx[2]][1] - a[1], P[idx[2]][2] - a[2]]);
+    const L = norm(n); if (L < 1e-9) return null; const nn = n.map(x => x / L); return { n: nn, d: dotn(nn, a) };
+  }
+  const angDeg = (m1, m2) => Math.acos(Math.min(1, Math.abs(dotn(m1.n, m2.n)))) * 180 / Math.PI;
+
+  // ---------------- data ----------------
+  const BOARD_YAW = 8 * Math.PI / 180, BC = [3.0, 0, 0.05], BU = [Math.sin(BOARD_YAW), Math.cos(BOARD_YAW), 0], BV = [0, 0, 1], BN = cross(BU, BV);
+  function make2D(r) {
+    const N = 80, nOut = Math.round(N * r), nIn = N - nOut, m = 0.22, b = -12;
+    const P = [], out = [];
+    for (let i = 0; i < nIn; i++) { const x = 4 + 112 * rnd(); P.push([x, m * x + b + gauss() * 1.0]); out.push(false); }
+    for (let i = 0; i < nOut; i++) {
+      if (i % 5 < 3) P.push([98 + gauss() * 7, 31 + gauss() * 4]); // "chair" clump
+      else P.push([2 + 116 * rnd(), -38 + 76 * rnd()]);
+      out.push(true);
+    }
+    const n = [-m, 1].map(x => x / Math.hypot(m, 1));
+    return { P, out, truth: { n, d: n[1] * b }, s: 2, unit: "cm", scale: 1, nIn };
+  }
+  function make3D(r) {
+    const P = [], out = [], cls = [];
+    // board points from a LiDAR-like scan (rays from the origin), holes removed, ~1 cm range noise
+    const holes = [[-0.25, 0.2], [0.25, 0.2], [-0.25, -0.2], [0.25, -0.2]];
+    for (let el = -12; el <= 12; el += 0.85) for (let az = -14; az <= 14; az += 0.5) {
+      const e = el * Math.PI / 180, a = az * Math.PI / 180, d = [Math.cos(e) * Math.cos(a), Math.cos(e) * Math.sin(a), Math.sin(e)];
+      const t = dotn(BC, BN) / dotn(d, BN), p = d.map(x => x * t), q = [p[0] - BC[0], p[1] - BC[1], p[2] - BC[2]];
+      const lu = dotn(q, BU), lv = dotn(q, BV);
+      if (Math.abs(lu) > 0.6 || Math.abs(lv) > 0.5 || holes.some(h => (lu - h[0]) ** 2 + (lv - h[1]) ** 2 < 0.0144)) continue;
+      const rr = t + 0.01 * gauss(); P.push(d.map(x => x * rr)); out.push(false); cls.push("board");
+    }
+    const nIn = P.length, nOut = Math.round(nIn * r / (1 - r));
+    for (let i = 0; i < nOut; i++) {
+      const k = i % 20; let p, c;
+      if (k < 10) { p = [2.45 + 1.0 * rnd(), -0.85 + 1.7 * rnd(), -1.0 + 0.01 * gauss()]; c = "floor"; }
+      else if (k < 15) { if (rnd() < 0.6) p = [2.78 + 0.44 * rnd(), -1.08 - 0.3 * rnd(), -0.53 + 0.01 * gauss()]; else p = [3.19 + 0.01 * gauss(), -1.08 - 0.3 * rnd(), -0.53 + 0.45 * rnd()]; c = "chair"; }
+      else if (k < 17) { p = [3.03 + 0.01 * gauss(), -0.025 + 0.05 * rnd(), -1.0 + 0.55 * rnd()]; c = "stand"; }
+      else { p = [2.5 + rnd(), -1.1 + 2.2 * rnd(), -1.0 + 1.7 * rnd()]; c = "scatter"; }
+      P.push(p); out.push(true); cls.push(c);
+    }
+    return { P, out, cls, truth: { n: BN, d: dotn(BN, BC) }, s: 3, unit: "cm", scale: 100, nIn };
+  }
+
+  // ---------------- state ----------------
+  const el = id => document.getElementById(id);
+  const S = { mode: "2d", D: null, it: 0, cur: null, best: null, hist: [], ls: null, showLS: true, timer: null, final: null };
+  const thrM = () => +el("thr").value / (S.D.scale === 100 ? 100 : 1); // threshold in model units
+  function countInliers(model) { const t = thrM(); let c = 0; const mask = new Uint8Array(S.D.P.length); S.D.P.forEach((p, i) => { if (Math.abs(dotn(model.n, p) - model.d) <= t) { mask[i] = 1; c++; } }); return { c, mask }; }
+  function sampleIdx(n, s) { const idx = []; while (idx.length < s) { const k = Math.floor(rnd() * n); if (!idx.includes(k)) idx.push(k); } return idx; }
+  function oneTrial() {
+    const D = S.D; let idx, model, tries = 0;
+    do { idx = sampleIdx(D.P.length, D.s); model = fitSample(D.P, idx); } while (!model && ++tries < 20);
+    const r = countInliers(model); S.it++;
+    S.cur = { idx, model, c: r.c, mask: r.mask };
+    if (!S.best || r.c > S.best.c) S.best = { idx, model, c: r.c, mask: r.mask, it: S.it };
+    S.hist.push([r.c, S.best.c]);
+    S.final = null;
+  }
+  function refit() { // final step of RANSAC: least squares on the best inliers only
+    if (!S.best) return; const pts = S.D.P.filter((_, i) => S.best.mask[i]); if (pts.length >= S.D.s) S.final = lsFit(pts);
+  }
+  function reset(regen) {
+    stopAuto();
+    if (regen) { seed++; } rnd = rng(seed * 7919 + (S.mode === "3d" ? 3 : 0));
+    S.D = S.mode === "2d" ? make2D(+el("out").value / 100) : make3D(+el("out").value / 100);
+    S.it = 0; S.cur = S.best = S.final = null; S.hist = []; S.ls = lsFit(S.D.P);
+    if (S.mode === "3d") build3D();
+    render();
+  }
+  function recount() { // threshold changed: re-evaluate the current & best models
+    if (S.cur) { const r = countInliers(S.cur.model); S.cur.c = r.c; S.cur.mask = r.mask; }
+    if (S.best) { const r = countInliers(S.best.model); S.best.c = r.c; S.best.mask = r.mask; if (S.final) refit(); }
+    render();
+  }
+  function stopAuto() { if (S.timer) { clearTimeout(S.timer); S.timer = null; } el("b-auto").textContent = "자동 실행"; }
+  function runAuto() {
+    if (S.timer) { stopAuto(); return; }
+    const max = +el("iters").value; if (S.it >= max) { S.it = 0; S.cur = S.best = S.final = null; S.hist = []; }
+    el("b-auto").textContent = "멈춤";
+    const delay = Math.max(12, Math.min(220, 3500 / max));
+    const tick = () => { oneTrial(); if (S.it >= +el("iters").value) { S.timer = null; finish(); el("b-auto").textContent = "자동 실행"; render(); return; } render(); S.timer = setTimeout(tick, delay); };
+    tick();
+  }
+  function finish() { refit(); S.cur = { idx: S.best.idx, model: S.best.model, c: S.best.c, mask: S.best.mask }; }
+
+  // ---------------- UI wiring ----------------
+  function syncOut() {
+    el("thr-o").textContent = (+el("thr").value).toFixed(1) + " cm";
+    el("iters-o").textContent = el("iters").value + "회"; el("out-o").textContent = el("out").value + "%";
+  }
+  el("thr").oninput = () => { syncOut(); recount(); };
+  el("iters").oninput = syncOut;
+  el("out").oninput = () => { syncOut(); reset(false); };
+  el("b-step").onclick = () => { stopAuto(); if (S.it >= +el("iters").value) { S.it = 0; S.best = null; S.hist = []; } oneTrial(); render(); };
+  el("b-auto").onclick = runAuto;
+  el("b-ls").onclick = () => { S.showLS = !S.showLS; el("b-ls").setAttribute("aria-pressed", S.showLS); render(); };
+  el("b-reset").onclick = () => reset(true);
+  document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+    if (S.mode === t.dataset.m) return; S.mode = t.dataset.m;
+    document.querySelectorAll(".tab").forEach(x => x.setAttribute("aria-selected", x === t));
+    el("c2").hidden = S.mode !== "2d"; stage.classList.toggle("m2d", S.mode === "2d"); el("c3").hidden = S.mode !== "3d"; el("view3").hidden = S.mode !== "3d"; el("labels").hidden = S.mode !== "3d";
+    if (S.mode === "3d") init3D();
+    el("iters").value = S.mode === "2d" ? 100 : 150; syncOut();
+    resize(); reset(false); runInstant();
+  });
+
+  // ---------------- readouts ----------------
+  function fmtN(w, s) {
+    const p = 0.99; if (w <= 0) return "∞"; if (w >= 1) return "1";
+    const ws = Math.pow(w, s); if (ws < 1e-12) return "∞";
+    return Math.ceil(Math.log(1 - p) / Math.log(1 - ws)).toLocaleString();
+  }
+  function readouts() {
+    const D = S.D, N = D.P.length;
+    el("r-it").textContent = S.it; el("r-cur").textContent = S.cur ? S.cur.c : "–"; el("r-best").textContent = S.best ? S.best.c : "–";
+    const wEst = S.best ? S.best.c / N : 0, wTrue = D.nIn / N, s = D.s, max = +el("iters").value;
+    const nReq = fmtN(wEst, s);
+    el("formula").innerHTML = `<div class="k">99% 확률(p)로 적어도 한 번은 이상치 없이 뽑으려면 필요한 반복 수 (s = 표본 크기 ${s}, w = inlier 비율)</div>` +
+      `N = log(1−p) / log(1−w<sup>${s}</sup>)<br>` +
+      (S.best ? `= log(0.01) / log(1−${wEst.toFixed(2)}<sup>${s}</sup>) = <b style="color:var(--sky)">${nReq}</b> <span class="k">(지금까지 최고 기준)</span><br>` : `<span class="k">시도하면 최고 inlier로 w를 추정합니다</span><br>`) +
+      `<span class="k">실제 w = ${wTrue.toFixed(2)} 이면 N = ${fmtN(wTrue, s)} · 지금 설정한 최대 반복 = ${max}</span>`;
+    const st = [];
+    st.push(["전체 점 / 실제 inlier", `${N} / ${D.nIn}`]);
+    if (S.cur) st.push(["이번 시도 각도 오차", angDeg(S.cur.model, D.truth).toFixed(2) + "°"]);
+    if (S.best) st.push([`최고 모델 (반복 #${S.best.it}) 오차`, angDeg(S.best.model, D.truth).toFixed(2) + "°"]);
+    if (S.final) st.push(["최종 (inlier로 재피팅) 오차", angDeg(S.final, D.truth).toFixed(2) + "°"]);
+    st.push(["최소제곱 (모든 점) 오차", angDeg(S.ls, D.truth).toFixed(2) + "°"]);
+    el("stats").innerHTML = st.map(x => `<dt>${x[0]}</dt><dd>${x[1]}</dd>`).join("");
+    const m = el("msg");
+    if (!S.best) { m.className = "msg"; m.textContent = "‘한 번 시도’ 또는 ‘자동 실행’을 눌러 시작하세요."; }
+    else if (angDeg(S.best.model, D.truth) > 20) { m.className = "msg bad"; m.textContent = D.s === 3 ? "보드가 아닌 다른 평면(바닥 등)을 골랐습니다. 이상치가 보드보다 많으면 RANSAC도 속습니다 → ① ROI를 좁혀 바닥·의자를 빼세요." : "최고 모델이 아직 정답 직선이 아닙니다. 반복을 늘려 보세요."; }
+    else { m.className = "msg"; m.textContent = `최고 모델이 ${D.s === 3 ? "보드 평면" : "정답 직선"}과 ${angDeg(S.best.model, D.truth).toFixed(1)}° 차이. 최소제곱(모든 점)은 ${angDeg(S.ls, D.truth).toFixed(1)}° 차이로 이상치에 끌려갑니다.`; }
+    const tr = S.cur ? `이번 시도: 점 ${S.cur.idx.map(i => "#" + i).join(", ")} 로 ${D.s === 2 ? "직선" : "평면"} → 띠 ±${(+el("thr").value).toFixed(1)} cm 안 <b>${S.cur.c}</b>개` : "아직 시도하지 않음";
+    el("status").innerHTML = `반복 <b>${S.it}</b> / ${max} · 최고 <b style="color:var(--sky)">${S.best ? S.best.c : 0}</b>개<br>${tr}`;
+    drawHist();
+  }
+  function drawHist() {
+    const c = el("hist"), dpr = Math.min(devicePixelRatio || 1, 2), w = c.clientWidth, h = c.clientHeight; if (!w) return;
+    c.width = w * dpr; c.height = h * dpr; const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+    const N = S.D.P.length, max = Math.max(+el("iters").value, S.hist.length, 1), bw = (w - 8) / max;
+    g.font = "10px IBM Plex Sans KR, sans-serif"; g.fillStyle = "#8a9bb0"; g.fillText("반복별 inlier 수 (회색) · 최고 (파랑)", 6, 12);
+    const y = v => h - 4 - (h - 20) * v / N;
+    S.hist.forEach((v, i) => { g.fillStyle = "#3b4a5a"; g.fillRect(4 + i * bw, y(v[0]), Math.max(1, bw - 0.5), h - 4 - y(v[0])); });
+    g.strokeStyle = "#1e9bd7"; g.lineWidth = 1.5; g.beginPath(); S.hist.forEach((v, i) => { const X = 4 + (i + 0.5) * bw; i ? g.lineTo(X, y(v[1])) : g.moveTo(X, y(v[1])); }); g.stroke();
+    g.strokeStyle = "rgba(95,207,154,.6)"; g.setLineDash([3, 3]); g.beginPath(); g.moveTo(4, y(S.D.nIn)); g.lineTo(w - 4, y(S.D.nIn)); g.stroke(); g.setLineDash([]);
+  }
+  function legend() {
+    const L = S.mode === "2d"
+      ? [["#1e9bd7", "inlier (띠 안)"], ["#5b6878", "outlier"], ["#e8b84a", "뽑힌 점 / 최소제곱"], ["rgba(30,155,215,.35)", "최고 모델 ± 임계값"], ["#ffffff", "이번 시도 (점선)"], ["#5fcf9a", "정답"]]
+      : [["#1e9bd7", "inlier"], ["#5b6878", "outlier"], ["#e8b84a", "뽑힌 3점 / 최소제곱 평면"], ["rgba(30,155,215,.4)", "최고 평면 ± 임계값"], ["rgba(255,255,255,.5)", "이번 시도"]];
+    el("legend").innerHTML = L.map(l => `<span><i style="background:${l[0]}"></i>${l[1]}</span>`).join("");
+  }
+  function render() { readouts(); legend(); if (S.mode === "2d") draw2D(); else update3D(); }
+
+  // ---------------- 2D canvas ----------------
+  const c2 = el("c2"), stage = el("stage");
+  const VIEW2 = { x0: -2, x1: 122, y0: -44, y1: 44 };
+  function draw2D() {
+    const dpr = Math.min(devicePixelRatio || 1, 2), W = stage.clientWidth, H = stage.clientHeight;
+    c2.width = W * dpr; c2.height = H * dpr; const g = c2.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const padT = W < 600 ? 110 : 84, padB = W < 600 ? 70 : 44, padX = 22;
+    const sc = Math.min((W - 2 * padX) / (VIEW2.x1 - VIEW2.x0), (H - padT - padB) / (VIEW2.y1 - VIEW2.y0));
+    const ox = (W - sc * (VIEW2.x1 - VIEW2.x0)) / 2, oy = padT + (H - padT - padB - sc * (VIEW2.y1 - VIEW2.y0)) / 2;
+    const X = x => ox + (x - VIEW2.x0) * sc, Y = y => oy + (VIEW2.y1 - y) * sc;
+    // grid (10 cm)
+    g.strokeStyle = "#18242f"; g.lineWidth = 1; g.font = "10px IBM Plex Mono, monospace"; g.fillStyle = "#56677a";
+    for (let x = 0; x <= 120; x += 10) { g.beginPath(); g.moveTo(X(x), Y(VIEW2.y0)); g.lineTo(X(x), Y(VIEW2.y1)); g.stroke(); if (x % 20 === 0) g.fillText(x, X(x) - 6, Y(VIEW2.y0) + 12); }
+    for (let y = -40; y <= 40; y += 10) { g.beginPath(); g.moveTo(X(VIEW2.x0), Y(y)); g.lineTo(X(VIEW2.x1), Y(y)); g.stroke(); }
+    g.fillText("x (cm)", X(VIEW2.x1) - 44, Y(VIEW2.y0) - 6);
+    g.save(); g.beginPath(); g.rect(X(VIEW2.x0), Y(VIEW2.y1), sc * (VIEW2.x1 - VIEW2.x0), sc * (VIEW2.y1 - VIEW2.y0)); g.clip();
+    const t = +el("thr").value;
+    function line(m, color, width, dash) {
+      // points on the line n·p = d, extended across the view
+      const n = m.n, dir = [-n[1], n[0]], p0 = [n[0] * m.d, n[1] * m.d];
+      const a = [p0[0] - dir[0] * 400, p0[1] - dir[1] * 400], b = [p0[0] + dir[0] * 400, p0[1] + dir[1] * 400];
+      g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.beginPath(); g.moveTo(X(a[0]), Y(a[1])); g.lineTo(X(b[0]), Y(b[1])); g.stroke(); g.setLineDash([]);
+    }
+    const D = S.D;
+    line(D.truth, "rgba(95,207,154,.55)", 1.2, [2, 4]);
+    if (S.best) { line(S.best.model, "rgba(30,155,215,.20)", 2 * t * sc); line(S.final || S.best.model, "#1e9bd7", 2.2); }
+    if (S.cur && S.best && S.cur.model !== S.best.model) { line(S.cur.model, "rgba(255,255,255,.08)", 2 * t * sc); line(S.cur.model, "rgba(255,255,255,.85)", 1.4, [6, 5]); }
+    if (S.showLS) line(S.ls, "#e8b84a", 2, [10, 6]);
+    const mask = S.cur ? S.cur.mask : null;
+    D.P.forEach((p, i) => { g.fillStyle = mask && mask[i] ? "#1e9bd7" : "#5b6878"; g.beginPath(); g.arc(X(p[0]), Y(p[1]), 3.6, 0, 7); g.fill(); });
+    if (S.cur) S.cur.idx.forEach(i => { const p = D.P[i]; g.strokeStyle = "#e8b84a"; g.lineWidth = 2.5; g.beginPath(); g.arc(X(p[0]), Y(p[1]), 8, 0, 7); g.stroke(); });
+    g.restore();
+    // annotations
+    g.font = "600 12px IBM Plex Sans KR, sans-serif";
+    const lab = (m, txt, color, xAt, dy) => { const yv = (m.d - m.n[0] * xAt) / m.n[1]; if (Math.abs(yv) < 42) { const w = g.measureText(txt).width; g.fillStyle = 'rgba(11,17,24,.85)'; g.fillRect(X(xAt) - 4, Y(yv) + dy - 13, w + 8, 18); g.fillStyle = color; g.fillText(txt, X(xAt), Y(yv) + dy); } };
+    if (S.showLS) lab(S.ls, "최소제곱 (모든 점) — 이상치에 끌려감", "#e8b84a", 44, -14);
+    if (S.best) lab(S.final || S.best.model, S.final ? "RANSAC 최종 (inlier만 재피팅)" : "RANSAC 최고 모델", "#1e9bd7", 60, 30);
+    g.fillStyle = "#8a9bb0"; g.font = "11px IBM Plex Sans KR, sans-serif";
+    g.fillText("의자 점 뭉치 (이상치)", X(88), Y(39));
+  }
+
+  // ---------------- 3D (three.js) ----------------
+  let T = null;
+  function init3D() {
+    if (T) return;
+    const cv = el("c3"), renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(40, 1, 0.02, 100); cam.up.set(0, 0, 1);
+    const grid = new THREE.GridHelper(4, 16, 0x24313f, 0x1a2532); grid.rotation.x = Math.PI / 2; grid.position.set(3, -0.2, -1.003); scene.add(grid);
+    const controls = new THREE.OrbitControls(cam, cv); controls.enableDamping = true; controls.dampingFactor = 0.12;
+    const mkSlab = (color, op) => { const m = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false, side: THREE.DoubleSide })); m.matrixAutoUpdate = false; scene.add(m); return m; };
+    const mkEdge = color => { const m = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.PlaneGeometry(1, 1)), new THREE.LineBasicMaterial({ color })); m.matrixAutoUpdate = false; scene.add(m); return m; };
+    T = { renderer, scene, cam, controls, pts: null, samp: [],
+      bestBand: mkSlab(0x1e9bd7, 0.16), bestEdge: mkEdge(0x1e9bd7), curBand: mkSlab(0xffffff, 0.07), curEdge: mkEdge(0xbfcad6), lsBand: mkSlab(0xe8b84a, 0.10), lsEdge: mkEdge(0xe8b84a) };
+    for (let i = 0; i < 3; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.028, 14, 10), new THREE.MeshBasicMaterial({ color: 0xe8b84a })); scene.add(s); T.samp.push(s); }
+    T.labels = [["보드", [3.0, 0.0, 0.62]], ["바닥 점", [3.0, 0.9, -1.0]], ["의자", [3.0, -1.25, -0.45]], ["보드 다리", [3.05, 0.12, -0.8]]].map(l => { const d = document.createElement("div"); d.className = "lbl"; d.textContent = l[0]; el("labels").appendChild(d); return { d, v: new THREE.Vector3(...l[1]) }; });
+    const VIEWS = { obl: [[-0.4, -3.3, 1.25], [3.0, -0.3, -0.35]], edge: [[3.0 + BU[0] * 4.2, BU[1] * 4.2, 0.25], [3.0, 0, -0.25]] };
+    T.setView = k => { cam.position.set(...VIEWS[k][0]); controls.target.set(...VIEWS[k][1]); controls.update(); };
+    el("v-obl").onclick = () => T.setView("obl"); el("v-edge").onclick = () => T.setView("edge");
+    T.setView("obl");
+    (function loop() { controls.update(); renderer.render(scene, cam);
+      const w = stage.clientWidth, h = stage.clientHeight;
+      if (S.mode === "3d") T.labels.forEach(l => { const p = l.v.clone().project(cam); const vis = p.z < 1 && Math.abs(p.x) < 1.05 && Math.abs(p.y) < 1.05; l.d.style.display = vis ? "" : "none"; if (vis) { l.d.style.left = ((p.x + 1) / 2 * w) + "px"; l.d.style.top = ((1 - p.y) / 2 * h) + "px"; } });
+      requestAnimationFrame(loop); })();
+  }
+  function build3D() {
+    if (!T) return;
+    if (T.pts) { T.scene.remove(T.pts); T.pts.geometry.dispose(); }
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(S.D.P.flat(), 3));
+    g.setAttribute("color", new THREE.BufferAttribute(new Float32Array(S.D.P.length * 3), 3));
+    T.pts = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.022, vertexColors: true })); T.scene.add(T.pts);
+  }
+  function placeSlab(mesh, edge, model, center, thick, show) {
+    mesh.visible = edge.visible = !!show; if (!show) return;
+    const n = new THREE.Vector3(...model.n), z = new THREE.Vector3(0, 0, 1);
+    let u = new THREE.Vector3().crossVectors(z, n); if (u.length() < 0.2) u.set(1, 0, 0).cross(n); u.normalize();
+    const v = new THREE.Vector3().crossVectors(n, u).normalize();
+    const c = new THREE.Vector3(...center), off = n.dot(c) - model.d; c.addScaledVector(n, -off); // project the center onto the plane
+    const M = new THREE.Matrix4().makeBasis(u, v, n).setPosition(c);
+    mesh.matrix.copy(M).multiply(new THREE.Matrix4().makeScale(1.5, 1.3, Math.max(thick, 0.002)));
+    edge.matrix.copy(M).multiply(new THREE.Matrix4().makeScale(1.5, 1.3, 1));
+  }
+  function centroidOf(mask) { const c = [0, 0, 0]; let k = 0; S.D.P.forEach((p, i) => { if (mask[i]) { c[0] += p[0]; c[1] += p[1]; c[2] += p[2]; k++; } }); return k ? c.map(x => x / k) : BC.slice(); }
+  function update3D() {
+    if (!T || !T.pts) return;
+    const col = T.pts.geometry.attributes.color.array, mask = S.cur ? S.cur.mask : null;
+    S.D.P.forEach((p, i) => { const inl = mask && mask[i]; col[3 * i] = inl ? 0.118 : 0.36; col[3 * i + 1] = inl ? 0.608 : 0.41; col[3 * i + 2] = inl ? 0.843 : 0.47; });
+    T.pts.geometry.attributes.color.needsUpdate = true;
+    const thr = thrM();
+    T.samp.forEach((s, k) => { s.visible = !!S.cur; if (S.cur) s.position.set(...S.D.P[S.cur.idx[k]]); });
+    const bm = S.best ? (S.final || S.best.model) : null;
+    placeSlab(T.bestBand, T.bestEdge, bm || S.D.truth, S.best ? centroidOf(S.best.mask) : BC, 2 * thr, !!S.best);
+    const showCur = S.cur && S.best && S.cur.model !== S.best.model;
+    placeSlab(T.curBand, T.curEdge, showCur ? S.cur.model : S.D.truth, showCur ? centroidOf(S.cur.mask) : BC, 2 * thr, showCur);
+    placeSlab(T.lsBand, T.lsEdge, S.ls, S.ls.c, 0.004, S.showLS);
+  }
+
+  function resize() {
+    if (T) { const w = stage.clientWidth, h = stage.clientHeight; T.renderer.setSize(w, h, false); T.cam.aspect = w / h; T.cam.updateProjectionMatrix(); }
+    render();
+  }
+  window.addEventListener("resize", resize);
+  // default view: run a full (seeded) RANSAC so the first screen already shows the result
+  function runInstant() { const max = +el("iters").value; while (S.it < max) oneTrial(); finish(); render(); }
+  syncOut(); reset(false); runInstant();
+  if (/[?#&]3d\b/.test(location.href)) document.querySelector('.tab[data-m="3d"]').click();
+})();
+</script>
+</body></html>

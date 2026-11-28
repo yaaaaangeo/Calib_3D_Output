@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Miscalibration Detection 미리보기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+:root {
+  --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
+  --sky: #1e9bd7; --navy: #002b68; --warn: #e8b84a; --ok: #5fd39a; --bad: #e5604f; --mint: #7fe0c4;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 14px; }
+.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; padding: 2px 4px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; margin-top: 2px; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; }
+.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
+.links a:hover { color: var(--fg); border-color: var(--sky); }
+.links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 10px; min-height: 0; }
+.left { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); gap: 10px; min-width: 0; min-height: 0; }
+.views { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 10px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; min-height: 0; }
+.card h2 { margin: 0 0 6px; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.card h2 span { font-weight: 400; font-size: 11.5px; }
+#cam { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 6px; background: #000; }
+#top { width: 100%; aspect-ratio: 16 / 9; display: block; border-radius: 6px; background: #0a1017; }
+.tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; min-width: 0; border-left: 4px solid var(--c, var(--line)); }
+.tile .k { font-size: 11.5px; color: var(--muted); }
+.tile .v { font: 600 22px var(--f-mono); font-variant-numeric: tabular-nums; }
+.tile .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+.tile .s { font-size: 11px; color: var(--muted); }
+.tile.over .v { color: var(--warn); }
+.banner { border-radius: 10px; padding: 9px 14px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.banner small { font-weight: 400; font-size: 12px; }
+.banner.ok { background: rgba(95,211,154,.12); color: var(--ok); border: 1px solid rgba(95,211,154,.4); }
+.banner.watch { background: rgba(232,184,74,.12); color: var(--warn); border: 1px solid rgba(232,184,74,.45); }
+.banner.alert { background: var(--bad); color: #fff; border: 1px solid var(--bad); }
+.chartc canvas { width: 100%; height: 100%; min-height: 170px; display: block; }
+.chartc { display: flex; flex-direction: column; }
+aside { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 9px; }
+.how { font-size: 12px; line-height: 1.6; color: var(--muted); background: rgba(30,155,215,.07); border: 1px solid rgba(30,155,215,.3); border-radius: 8px; padding: 8px 10px; margin: 0; }
+.how b { color: var(--fg); }
+.lbl { font-size: 11px; color: var(--muted); letter-spacing: .05em; border-top: 1px solid var(--line); padding-top: 8px; }
+.sz { display: grid; grid-template-columns: 92px minmax(0, 1fr) 58px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.sz input { width: 100%; accent-color: var(--sky); margin: 0; }
+.sz output { font: 12px var(--f-mono); color: var(--fg); text-align: right; }
+.btns { display: flex; gap: 6px; flex-wrap: wrap; }
+button.b { font: 600 12.5px var(--f-ui); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+button.b:hover { border-color: var(--sky); } button.b.pri { background: var(--navy); border-color: var(--sky); color: #fff; }
+button.b.ev { border-color: rgba(232,184,74,.5); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.tl { display: grid; grid-template-columns: auto minmax(0, 1fr) 88px; gap: 8px; align-items: center; }
+.tl input { width: 100%; accent-color: var(--sky); }
+.tl output { font: 12px var(--f-mono); text-align: right; }
+.log { font: 11.5px/1.55 var(--f-mono); font-variant-numeric: tabular-nums; margin: 0; padding: 0; list-style: none; max-height: 240px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+.log li { padding: 3px 8px; border-bottom: 1px solid #18222e; display: flex; justify-content: space-between; gap: 6px; white-space: nowrap; }
+.log li.f { color: var(--warn); } .log li.a { color: #fff; background: rgba(229,96,79,.35); } .log li.e { color: var(--sky); font-family: var(--f-ui); }
+.note { font-size: 11.5px; color: var(--muted); line-height: 1.55; margin: 0; }
+@media (max-width: 1100px) { .app { height: auto; min-height: 100%; } .chartc canvas { height: 220px; } }
+@media (max-width: 820px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+  .views { grid-template-columns: minmax(0, 1fr); }
+  .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .links a { padding: 6px 11px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hrow">
+    <div class="brand">Miscalibration Detection 미리보기<small>주행할 때마다 캘리브레이션 당시 정렬(기준 기록)과 비교해 틀어짐을 감지 · N회 연속 초과 시 경보</small></div>
+    <nav class="links" aria-label="시뮬레이터 목록">
+      <a href="./index.html">3D 뷰어</a><a href="./basics.html">기초 체험</a><a href="./algos.html">알고리즘 비교</a><a href="./roi.html">ROI</a><a href="./ransac.html">RANSAC</a><a href="./register.html">정합</a><a href="./miscal.html" aria-current="page">이상 감지</a>
+    </nav>
+  </header>
+  <main>
+    <div class="left">
+      <div class="views">
+        <section class="card"><h2>(a) 카메라 영상 엣지 + LiDAR 깊이 엣지 <span>흰 선 = 영상 엣지 · 노란 점 = LiDAR1 깊이 불연속</span></h2><canvas id="cam" aria-label="카메라 영상 위 LiDAR 깊이 엣지"></canvas></section>
+        <section class="card"><h2>(b) 위에서 본 두 LiDAR 겹침 <span><b style="color:var(--sky)">LiDAR1</b> · <b style="color:var(--mint)">LiDAR2</b></span></h2><canvas id="top" aria-label="두 LiDAR 점군 위에서 본 모습"></canvas></section>
+      </div>
+      <div class="tiles">
+        <div class="tile" style="--c:var(--warn)" id="t-e"><div class="k">엣지 정렬 오차</div><div class="v">–</div><div class="s"></div></div>
+        <div class="tile" style="--c:var(--sky)" id="t-o"><div class="k">LiDAR 겹침 잔차</div><div class="v">–</div><div class="s"></div></div>
+        <div class="tile" style="--c:var(--mint)" id="t-p"><div class="k">지면 피치 변화</div><div class="v">–</div><div class="s"></div></div>
+        <div class="tile" id="t-d"><div class="k">실제 틀어짐 (시뮬레이터만 앎)</div><div class="v" style="font-size:15px">–</div><div class="s">roll · pitch · yaw</div></div>
+      </div>
+      <div class="banner ok" id="banner">정상</div>
+      <section class="card chartc"><h2>회차별 종합 점수 <span>각 지표 ÷ 임계값 중 최댓값 · 1.0 = 임계선 · 빨간 배경 = 경보</span></h2><canvas id="chart" aria-label="회차별 점수 그래프"></canvas></section>
+    </div>
+    <aside>
+      <p class="how"><b>어떻게 보나요</b> — 매 회차(주행 1회)마다 세 지표를 기준 기록과 비교합니다. 엣지 정렬은 회전 전반을, 두 LiDAR 겹침은 요·롤을, 지면 피치는 처짐을 잘 잡습니다. 한 번 튀는 값은 무시하고 <b>N회 연속</b> 임계를 넘을 때만 “재캘리브레이션 필요”를 띄웁니다.</p>
+      <div class="lbl">시간 (회차)</div>
+      <div class="tl"><button class="b pri" id="play" aria-label="재생">▶ 재생</button><input type="range" id="run" min="0" max="119" step="1" value="105" aria-label="회차"><output id="run-o"></output></div>
+      <div class="lbl">이벤트 넣기 (현재 회차에)</div>
+      <div class="btns">
+        <button class="b ev" data-ev="shock">충격 (요 1.0°)</button>
+        <button class="b ev" data-ev="sag">점진적 처짐 (피치 0.02°/회)</button>
+        <button class="b ev" data-ev="temp">온도 변화 (±0.1° 흔들림)</button>
+        <button class="b ev" data-ev="recal">정비 + 재캘리브레이션</button>
+      </div>
+      <div class="btns"><button class="b" id="clear">이벤트 모두 지우기</button><button class="b" id="demo">기본 시나리오</button></div>
+      <div class="lbl">경보 규칙</div>
+      <label class="sz">연속 횟수 N<input type="range" id="nN" min="1" max="8" step="1" value="3"><output id="nN-o"></output></label>
+      <label class="sz">엣지 임계<input type="range" id="thE" min="1.5" max="8" step="0.1" value="3"><output id="thE-o"></output></label>
+      <label class="sz">겹침 임계<input type="range" id="thO" min="2" max="12" step="0.5" value="4"><output id="thO-o"></output></label>
+      <label class="sz">피치 임계<input type="range" id="thP" min="0.05" max="0.6" step="0.01" value="0.2"><output id="thP-o"></output></label>
+      <div class="lbl">회차 기록 (최근 → 과거)</div>
+      <ul class="log" id="log"></ul>
+      <p class="note">단순화: 차고(벽·기둥·주차 차량·천장 보) 장면을 매 회차 같은 위치에서 본다고 가정. 틀어짐은 LiDAR1 장착부에만 생기고 카메라·LiDAR2는 그대로. 각 지표에 측정 노이즈(엣지 ≈ 0.8 px, 겹침 ≈ 1.2 cm, 피치 ≈ 0.01°)와 가끔(약 6%) 튀는 엣지 측정(비·혼잡 장면 가정)을 더했습니다.</p>
+    </aside>
+  </main>
+</div>
+<script>
+//<core>
+"use strict";
+const D2R = Math.PI / 180, RUNS = 120;
+const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]], sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const scl = (a, s) => [a[0]*s, a[1]*s, a[2]*s], dot = (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const mv = (R, v) => [R[0]*v[0]+R[1]*v[1]+R[2]*v[2], R[3]*v[0]+R[4]*v[1]+R[5]*v[2], R[6]*v[0]+R[7]*v[1]+R[8]*v[2]];
+const mvT = (R, v) => [R[0]*v[0]+R[3]*v[1]+R[6]*v[2], R[1]*v[0]+R[4]*v[1]+R[7]*v[2], R[2]*v[0]+R[5]*v[1]+R[8]*v[2]];
+const mm = (a, b) => { const r = []; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r.push(a[i*3]*b[j]+a[i*3+1]*b[3+j]+a[i*3+2]*b[6+j]); return r; };
+const rx = t => { const c = Math.cos(t), s = Math.sin(t); return [1,0,0, 0,c,-s, 0,s,c]; };
+const ry = t => { const c = Math.cos(t), s = Math.sin(t); return [c,0,s, 0,1,0, -s,0,c]; };
+const rz = t => { const c = Math.cos(t), s = Math.sin(t); return [c,-s,0, s,c,0, 0,0,1]; };
+function mulberry(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const gaussOf = r => () => { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); };
+
+// ---------- vehicle frame: x forward, y left, z up (ground z = 0) ----------
+const CAMP = [1.6, 0, 1.45], L1 = [1.3, 0.55, 1.9], L2 = [-0.6, -0.55, 1.9];
+const W = 960, H = 540, FX = 700, CX = 480, CY = 270;
+const toCam = P => { const d = sub(P, CAMP); return [-d[1], -d[2], d[0]]; };   // camera looks +x
+const proj = Pc => [FX * Pc[0] / Pc[2] + CX, FX * Pc[1] / Pc[2] + CY];
+// scene
+const BOXES = [
+  { min: [7.7, 2.9, 0], max: [8.3, 3.5, 3.0], col: "#56606c" },  { min: [7.7, -3.5, 0], max: [8.3, -2.9, 3.0], col: "#56606c" },
+  { min: [15.7, 2.9, 0], max: [16.3, 3.5, 3.0], col: "#56606c" }, { min: [15.7, -3.5, 0], max: [16.3, -2.9, 3.0], col: "#56606c" },
+  { min: [9.5, -2.7, 0], max: [14.0, -0.95, 1.5], col: "#6d4f8a", car: true },
+  { min: [11.8, -5, 2.55], max: [12.2, 5, 3.0], col: "#4a5563" },
+];
+const WALLS = [ // vertical planes (for LiDAR overlap) as 2D segments + normal
+  { a: [-10, 5], b: [22, 5] }, { a: [-10, -5], b: [22, -5] }, { a: [22, -5], b: [22, 5] }, { a: [-10, -5], b: [-10, 5] },
+];
+// 3D depth-edge segments (silhouettes as seen from the front-roof LiDAR / camera)
+const EDGES = [];
+for (const b of BOXES) {
+  if (b.max[2] > 2.9 && b.max[2] - b.min[2] > 2) { // pillars: two silhouette verticals (front corners)
+    EDGES.push([[b.min[0], b.min[1], 0.2], [b.min[0], b.min[1], 2.9]], [[b.min[0], b.max[1], 0.2], [b.min[0], b.max[1], 2.9]]);
+  }
+}
+EDGES.push([[9.5, -2.7, 1.5], [9.5, -0.95, 1.5]], [[9.5, -0.95, 1.5], [14.0, -0.95, 1.5]], [[9.5, -0.95, 0.25], [9.5, -0.95, 1.5]], [[9.5, -2.7, 0.25], [9.5, -2.7, 1.5]]);
+EDGES.push([[11.8, -4.8, 2.55], [11.8, 4.8, 2.55]]);
+// sample depth-edge points: vertical edges at LiDAR1 ring heights (32 ch, -16..15°), horizontal edges every 8 cm
+const EPTS = [];
+EDGES.forEach((e, k) => {
+  const vert = Math.abs(e[0][2] - e[1][2]) > 0.5;
+  if (vert) { const dx = Math.hypot(e[0][0] - L1[0], e[0][1] - L1[1]); for (let i = 0; i < 32; i++) { const el = (-16 + i) * D2R, z = L1[2] + dx * Math.tan(el); if (z > e[0][2] && z < e[1][2]) EPTS.push({ p: [e[0][0], e[0][1], z], k }); } }
+  else { const n = Math.ceil(Math.hypot(...sub(e[1], e[0])) / 0.08); for (let i = 0; i <= n; i++) EPTS.push({ p: add(e[0], scl(sub(e[1], e[0]), i / n)), k }); }
+});
+// 2D (horizontal ring) raycast for the top view / overlap residual
+function segs2D() {
+  const S = WALLS.map(w => ({ a: w.a, b: w.b }));
+  for (const b of BOXES) { if (b.min[2] > 1) continue; const x0 = b.min[0], x1 = b.max[0], y0 = b.min[1], y1 = b.max[1]; S.push({ a: [x0, y0], b: [x1, y0] }, { a: [x1, y0], b: [x1, y1] }, { a: [x1, y1], b: [x0, y1] }, { a: [x0, y1], b: [x0, y0] }); }
+  return S.map(s => { const d = [s.b[0]-s.a[0], s.b[1]-s.a[1]], l = Math.hypot(d[0], d[1]); return { ...s, n: [-d[1]/l, d[0]/l] }; });
+}
+const SEGS = segs2D();
+function ring2D(O, zRel) {
+  const out = [];
+  for (let i = 0; i < 720; i++) {
+    const az = i * 0.5 * D2R, d = [Math.cos(az), Math.sin(az)]; let best = 1e9, bn = null;
+    for (const s of SEGS) {
+      const e = [s.b[0]-s.a[0], s.b[1]-s.a[1]], den = d[0]*e[1] - d[1]*e[0]; if (Math.abs(den) < 1e-9) continue;
+      const w = [s.a[0]-O[0], s.a[1]-O[1]], t = (w[0]*e[1] - w[1]*e[0]) / den, u = (w[0]*d[1] - w[1]*d[0]) / den;
+      if (t > 0.3 && u >= 0 && u <= 1 && t < best) { best = t; bn = s.n; }
+    }
+    if (bn && best < 40) out.push({ p: [O[0] + d[0]*best, O[1] + d[1]*best, O[2] + zRel], n: [bn[0], bn[1], 0] });
+  }
+  return out;
+}
+const RING1 = ring2D(L1, 0).concat(ring2D(L1, -0.6)), RING2 = ring2D(L2, 0);
+const GROUND = []; for (let x = 3; x <= 15; x += 1.0) for (let y = -4; y <= 4; y += 1.0) GROUND.push([x, y, 0]);
+
+// ---------- drift model (LiDAR1 mount rotation, in its own frame, degrees) ----------
+function rawDrift(k, events) {
+  let r = 0, p = 0, y = 0;
+  for (const e of events) {
+    if (k < e.at) continue;
+    if (e.type === "shock") y += 1.0;
+    else if (e.type === "sag") { // sagging continues until the mount is serviced (next re-calibration)
+      const fix = events.filter(x => x.type === "recal" && x.at > e.at).reduce((m, x) => Math.min(m, x.at), Infinity);
+      p += 0.02 * (Math.min(k, fix) - e.at); }
+    else if (e.type === "temp") { y += 0.1 * Math.sin(2 * Math.PI * k / 7); p += 0.07 * Math.cos(2 * Math.PI * k / 5); r += 0.05 * Math.sin(2 * Math.PI * k / 11); }
+  }
+  return [r, p, y];
+}
+function drift(k, events) { // relative to the latest reference record (calibration / re-calibration)
+  let ref = [0, 0, 0]; for (const e of events) if (e.type === "recal" && e.at <= k) ref = rawDrift(e.at, events);   // events are sorted by time; last one wins
+  const d = rawDrift(k, events); return [d[0] - ref[0], d[1] - ref[1], d[2] - ref[2]];
+}
+const Rof = d => mm(rz(d[2] * D2R), mm(ry(d[1] * D2R), rx(d[0] * D2R)));
+// a LiDAR1 point measured with the drifted mount but mapped with the reference calibration
+const mapL1 = (P, R) => add(L1, mvT(R, sub(P, L1)));
+function segDist(q, a, b) { const ab = [b[0]-a[0], b[1]-a[1]], t = Math.max(0, Math.min(1, ((q[0]-a[0])*ab[0] + (q[1]-a[1])*ab[1]) / (ab[0]**2 + ab[1]**2))); return Math.hypot(q[0] - a[0] - t*ab[0], q[1] - a[1] - t*ab[1]); }
+const EDGE2D = EDGES.map(e => [proj(toCam(e[0])), proj(toCam(e[1]))]);
+function metrics(k, events) {
+  const d = drift(k, events), R = Rof(d), g = gaussOf(mulberry(k * 7919 + 13));
+  let se = 0; for (const e of EPTS) { const q = proj(toCam(mapL1(e.p, R))); se += segDist(q, EDGE2D[e.k][0], EDGE2D[e.k][1]); }
+  let so = 0; for (const s of RING1) { const q = mapL1(s.p, R); so += Math.abs(dot(sub(q, s.p), s.n)); }
+  // ground plane z = a x + b y + c by least squares on mapped ground points
+  let Sxx = 0, Sxy = 0, Syy = 0, Sx = 0, Sy = 0, Sz = 0, Sxz = 0, Syz = 0, n = GROUND.length;
+  for (const P of GROUND) { const q = mapL1(P, R); Sxx += q[0]*q[0]; Sxy += q[0]*q[1]; Syy += q[1]*q[1]; Sx += q[0]; Sy += q[1]; Sz += q[2]; Sxz += q[0]*q[2]; Syz += q[1]*q[2]; }
+  const A = [[Sxx, Sxy, Sx], [Sxy, Syy, Sy], [Sx, Sy, n]], bb = [Sxz, Syz, Sz];
+  const det3 = M => M[0][0]*(M[1][1]*M[2][2]-M[1][2]*M[2][1]) - M[0][1]*(M[1][0]*M[2][2]-M[1][2]*M[2][0]) + M[0][2]*(M[1][0]*M[2][1]-M[1][1]*M[2][0]);
+  const a = det3(A.map((row, i) => [bb[i], row[1], row[2]])) / det3(A);
+  const glitch = mulberry(k * 104729 + 7)() < 0.06 ? 2.6 + 0.8 * Math.abs(g()) : 0;   // occasional bad frame (rain, crowded scene)
+  return {
+    d, glitch: glitch > 0,
+    edge: se / EPTS.length + Math.max(0.15, 0.8 + 0.3 * g()) + glitch,
+    over: (so / RING1.length) * 100 + Math.max(0.2, 1.2 + 0.3 * g()),
+    pitch: Math.atan(a) / D2R + 0.012 * g(),
+    R,
+  };
+}
+//</core>
+</script>
+<script>
+(function () {
+const $ = id => document.getElementById(id);
+const DEMO = [{ type: "temp", at: 6 }, { type: "sag", at: 28 }, { type: "recal", at: 56 }, { type: "shock", at: 84 }];
+let events = DEMO.map(e => ({ ...e }));
+const S = { run: 105, N: 3, thE: 3, thO: 4, thP: 0.2 };
+const EVN = { shock: "충격 요 +1.0°", sag: "처짐 시작", temp: "온도 변화 시작", recal: "정비·재캘리브레이션" };
+
+const sl = [["nN", "N", v => v + "회"], ["thE", "thE", v => v.toFixed(1) + " px"], ["thO", "thO", v => v.toFixed(1) + " cm"], ["thP", "thP", v => v.toFixed(2) + "°"]];
+for (const [id, key, f] of sl) { const i = $(id), o = $(id + "-o"); const h = () => { S[key] = +i.value; o.textContent = f(+i.value); }; h(); i.addEventListener("input", () => { h(); recompute(); }); }
+const runEl = $("run"); runEl.max = RUNS - 1;
+runEl.addEventListener("input", () => { S.run = +runEl.value; recompute(); });
+document.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const t = b.dataset.ev; events = events.filter(e => !(e.at === S.run && e.type === t)); events.push({ type: t, at: S.run }); events.sort((a, b) => a.at - b.at); recompute(); });
+$("clear").onclick = () => { events = []; recompute(); };
+$("demo").onclick = () => { events = DEMO.map(e => ({ ...e })); S.run = 105; runEl.value = 105; recompute(); };
+let timer = null;
+$("play").onclick = () => {
+  if (timer) { clearInterval(timer); timer = null; $("play").textContent = "▶ 재생"; return; }
+  if (S.run >= RUNS - 1) S.run = 0;
+  $("play").textContent = "⏸ 정지";
+  timer = setInterval(() => { S.run++; runEl.value = S.run; recompute(); if (S.run >= RUNS - 1) { clearInterval(timer); timer = null; $("play").textContent = "▶ 재생"; } }, 160);
+};
+
+let series = [];
+function recompute() {
+  series = [];
+  let streak = 0;
+  for (let k = 0; k < RUNS; k++) {
+    const m = metrics(k, events);
+    m.ne = m.edge / S.thE; m.no = m.over / S.thO; m.np = Math.abs(m.pitch) / S.thP;
+    m.score = Math.max(m.ne, m.no, m.np); m.flag = m.score > 1;
+    streak = m.flag ? streak + 1 : 0; m.streak = streak; m.alert = streak >= S.N;
+    series.push(m);
+  }
+  draw();
+}
+function fit(cv) { const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1), w = Math.max(10, Math.round(r.width * dpr)), h = Math.max(10, Math.round(r.height * dpr)); if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; } const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); return { g, w: r.width, h: r.height }; }
+
+// static camera background
+const bg = document.createElement("canvas"); bg.width = W; bg.height = H;
+(function () {
+  const g = bg.getContext("2d"); g.fillStyle = "#121a23"; g.fillRect(0, 0, W, H);
+  const clip = poly => { const out = [], Z = 0.2; for (let i = 0; i < poly.length; i++) { const a = poly[i], b = poly[(i+1) % poly.length], ia = a[2] >= Z, ib = b[2] >= Z; if (ia) out.push(a); if (ia !== ib) { const s = (Z - a[2]) / (b[2] - a[2]); out.push(add(a, scl(sub(b, a), s))); } } return out; };
+  const fillPoly = (polyW, col) => { const pc = clip(polyW.map(toCam)); if (pc.length < 3) return; g.beginPath(); pc.forEach((p, i) => { const q = proj(p); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); g.fillStyle = col; g.fill(); };
+  fillPoly([[2, 5, 3], [22, 5, 3], [22, -5, 3], [2, -5, 3]], "#161e28");
+  for (let x = 2; x < 22; x += 2) fillPoly([[x, -5, 0], [x + 2, -5, 0], [x + 2, 5, 0], [x, 5, 0]], (x / 2) % 2 ? "#26303b" : "#222b35");
+  for (const y of [-1.6, 1.6]) fillPoly([[2, y - 0.06, 0.001], [22, y - 0.06, 0.001], [22, y + 0.06, 0.001], [2, y + 0.06, 0.001]], "#b9a35a");
+  fillPoly([[2, 5, 0], [22, 5, 0], [22, 5, 3], [2, 5, 3]], "#2f3a47"); fillPoly([[2, -5, 0], [22, -5, 0], [22, -5, 3], [2, -5, 3]], "#2b3541");
+  fillPoly([[22, -5, 0], [22, 5, 0], [22, 5, 3], [22, -5, 3]], "#3a4655");
+  const order = BOXES.slice().sort((a, b) => b.min[0] - a.min[0]);
+  const Ld = [-0.5, 0.3, 0.8];
+  for (const b of order) {
+    const mn = b.min, mx = b.max, faces = [
+      { n: [-1,0,0], q: [[mn[0],mn[1],mn[2]],[mn[0],mx[1],mn[2]],[mn[0],mx[1],mx[2]],[mn[0],mn[1],mx[2]]] },
+      { n: [0,1,0], q: [[mn[0],mx[1],mn[2]],[mx[0],mx[1],mn[2]],[mx[0],mx[1],mx[2]],[mn[0],mx[1],mx[2]]] },
+      { n: [0,-1,0], q: [[mn[0],mn[1],mn[2]],[mx[0],mn[1],mn[2]],[mx[0],mn[1],mx[2]],[mn[0],mn[1],mx[2]]] },
+      { n: [0,0,1], q: [[mn[0],mn[1],mx[2]],[mx[0],mn[1],mx[2]],[mx[0],mx[1],mx[2]],[mn[0],mx[1],mx[2]]] },
+      { n: [0,0,-1], q: [[mn[0],mn[1],mn[2]],[mx[0],mn[1],mn[2]],[mx[0],mx[1],mn[2]],[mn[0],mx[1],mn[2]]] } ];
+    for (const f of faces) { const c = scl(f.q.reduce((s, p) => add(s, p), [0,0,0]), 0.25); if (dot(f.n, sub(c, CAMP)) >= 0) continue; const k = 0.55 + 0.45 * Math.max(0, dot(f.n, Ld)); const v = parseInt(b.col.slice(1), 16); fillPoly(f.q, `rgb(${(v>>16&255)*k|0},${(v>>8&255)*k|0},${(v&255)*k|0})`); }
+  }
+  // image edges (true)
+  g.strokeStyle = "rgba(235,242,250,.85)"; g.lineWidth = 2;
+  for (const e of EDGES) { const a = proj(toCam(e[0])), b = proj(toCam(e[1])); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke(); }
+})();
+
+function drawCam(m) {
+  const cv = $("cam"), { g, w, h } = fit(cv); const s = w / W; g.save(); g.scale(s, s);
+  g.drawImage(bg, 0, 0);
+  g.fillStyle = "#e8b84a";
+  for (const e of EPTS) { const q = proj(toCam(mapL1(e.p, m.R))); g.beginPath(); g.arc(q[0], q[1], 3.6, 0, 2 * Math.PI); g.fill(); }
+  g.fillStyle = "rgba(11,17,24,.8)"; g.fillRect(12, 12, 300, 34);
+  g.font = "600 19px 'IBM Plex Sans KR', sans-serif"; g.fillStyle = m.ne > 1 ? "#e8b84a" : "#5fd39a"; g.fillText(`엣지 정렬 오차 ${m.edge.toFixed(2)} px`, 22, 36);
+  g.restore();
+}
+function drawTop(m) {
+  const cv = $("top"), { g, w, h } = fit(cv); g.clearRect(0, 0, w, h);
+  const x0 = -3, x1 = 23, y0 = -6.2, y1 = 6.2, s = Math.min(w / (x1 - x0), h / (y1 - y0)), ox = (w - (x1 - x0) * s) / 2, oy = (h - (y1 - y0) * s) / 2;
+  const X = p => ox + (p[0] - x0) * s, Y = p => oy + (y1 - p[1]) * s;
+  g.strokeStyle = "#22303f"; g.lineWidth = 1; for (let x = 0; x <= 22; x += 2) { g.beginPath(); g.moveTo(X([x, 0]), Y([0, y0])); g.lineTo(X([x, 0]), Y([0, y1])); g.stroke(); }
+  for (const p of RING1) { if (p.p[2] !== L1[2]) continue; const q = mapL1(p.p, m.R); g.fillStyle = "rgba(30,155,215,.95)"; g.fillRect(X(q) - 1.6, Y(q) - 1.6, 3.2, 3.2); }
+  for (const p of RING2) { g.fillStyle = "rgba(127,224,196,.9)"; g.fillRect(X(p.p) - 1, Y(p.p) - 1, 2, 2); }
+  g.fillStyle = "#3a4b60"; g.strokeStyle = "#8a9bb0"; g.lineWidth = 1; const vx = X([-1.0, 0]), vy = Y([0, 0.95]); g.fillRect(vx, vy, 4.6 * s, 1.9 * s); g.strokeRect(vx, vy, 4.6 * s, 1.9 * s);
+  for (const [P, c] of [[L1, "#1e9bd7"], [L2, "#7fe0c4"]]) { g.fillStyle = c; g.beginPath(); g.arc(X(P), Y(P), 4, 0, 2 * Math.PI); g.fill(); }
+  g.font = "600 12px 'IBM Plex Sans KR', sans-serif"; g.fillStyle = "#e6edf5"; g.fillText(`겹침 잔차 ${m.over.toFixed(1)} cm` + (m.no > 1 ? " — 벽이 두 겹" : ""), 8, 16);
+  g.fillStyle = "#8a9bb0"; g.font = "11px 'IBM Plex Sans KR', sans-serif"; g.fillText("앞 →  (격자 2 m)", w - 96, h - 8);
+}
+function drawChart() {
+  const cv = $("chart"), { g, w, h } = fit(cv); g.clearRect(0, 0, w, h);
+  const L = 34, R = 10, T = 18, B = 22, pw = w - L - R, ph = h - T - B, YM = 4;
+  const X = k => L + k / (RUNS - 1) * pw, Y = v => T + ph - Math.min(YM, v) / YM * ph;
+  // alert shading
+  for (let k = 0; k <= S.run; k++) if (series[k].alert) { g.fillStyle = "rgba(229,96,79,.22)"; g.fillRect(X(k - 0.5), T, pw / (RUNS - 1), ph); }
+  g.strokeStyle = "#22303f"; g.lineWidth = 1; g.font = "11px 'IBM Plex Mono', monospace"; g.fillStyle = "#8a9bb0";
+  for (let v = 0; v <= YM; v++) { g.beginPath(); g.moveTo(L, Y(v)); g.lineTo(L + pw, Y(v)); g.stroke(); g.fillText(v.toFixed(0), 10, Y(v) + 4); }
+  for (let k = 0; k < RUNS; k += 20) g.fillText(k, X(k) - 6, h - 6);
+  g.strokeStyle = "#e5604f"; g.setLineDash([6, 4]); g.lineWidth = 1.5; g.beginPath(); g.moveTo(L, Y(1)); g.lineTo(L + pw, Y(1)); g.stroke(); g.setLineDash([]);
+  g.fillStyle = "#e5604f"; g.fillText("임계 1.0", L + pw - 56, Y(1) - 5);
+  const line = (key, col, lw) => { g.strokeStyle = col; g.lineWidth = lw; g.beginPath(); for (let k = 0; k <= S.run; k++) { const p = [X(k), Y(series[k][key])]; k ? g.lineTo(...p) : g.moveTo(...p); } g.stroke(); };
+  line("ne", "rgba(232,184,74,.55)", 1.2); line("no", "rgba(30,155,215,.6)", 1.2); line("np", "rgba(127,224,196,.6)", 1.2); line("score", "#e6edf5", 2.2);
+  for (let k = 0; k <= S.run; k++) if (series[k].flag) { g.fillStyle = series[k].alert ? "#e5604f" : "#e8b84a"; g.beginPath(); g.arc(X(k), Y(series[k].score), 2.6, 0, 2 * Math.PI); g.fill(); }
+  g.font = "11px 'IBM Plex Sans KR', sans-serif";
+  events.forEach((e, i) => { const x = X(e.at); g.strokeStyle = e.type === "recal" ? "#5fd39a" : "#8a9bb0"; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(x, T); g.lineTo(x, T + ph); g.stroke(); g.setLineDash([]); g.fillStyle = e.type === "recal" ? "#5fd39a" : "#c9d6e6"; g.fillText(EVN[e.type], Math.min(x + 3, L + pw - 80), T + 10 + (i % 2) * 14); });
+  g.strokeStyle = "#1e9bd7"; g.lineWidth = 2; g.beginPath(); g.moveTo(X(S.run), T - 4); g.lineTo(X(S.run), T + ph); g.stroke();
+  // legend
+  const lg = [["종합", "#e6edf5"], ["엣지", "#e8b84a"], ["겹침", "#1e9bd7"], ["피치", "#7fe0c4"]]; let lx = L + 6;
+  for (const [t, c] of lg) { g.fillStyle = c; g.fillRect(lx, 4, 12, 3); g.fillStyle = "#8a9bb0"; g.fillText(t, lx + 16, 10); lx += 52; }
+}
+function draw() {
+  const m = series[S.run];
+  $("run-o").textContent = `${S.run + 1} / ${RUNS}회`;
+  drawCam(m); drawTop(m); drawChart();
+  const tile = (id, v, unit, sub, over) => { const el = $(id); el.querySelector(".v").innerHTML = `${v}<small> ${unit}</small>`; el.querySelector(".s").textContent = sub; el.classList.toggle("over", over); };
+  tile("t-e", m.edge.toFixed(2), "px", `임계 ${S.thE.toFixed(1)} px`, m.ne > 1);
+  tile("t-o", m.over.toFixed(1), "cm", `임계 ${S.thO.toFixed(1)} cm`, m.no > 1);
+  tile("t-p", (m.pitch >= 0 ? "+" : "") + m.pitch.toFixed(3), "°", `임계 ±${S.thP.toFixed(2)}°`, m.np > 1);
+  $("t-d").querySelector(".v").textContent = m.d.map(v => (v >= 0 ? "+" : "") + v.toFixed(2) + "°").join(" ");
+  const b = $("banner");
+  if (m.alert) { let a = S.run; while (a > 0 && series[a - 1].flag) a--; b.className = "banner alert"; b.innerHTML = `⚠ 재캘리브레이션 필요 <small>${a + 1}회차부터 ${m.streak}회 연속 임계 초과 (N = ${S.N})</small>`; }
+  else if (m.flag) { b.className = "banner watch"; b.innerHTML = `주의 — 임계 초과 ${m.streak}회 연속 <small>${S.N}회 연속이면 경보 · 한 번 튄 값은 무시</small>`; }
+  else { b.className = "banner ok"; b.innerHTML = `정상 <small>종합 점수 ${m.score.toFixed(2)} (1.0 미만)</small>`; }
+  // log
+  const items = [];
+  for (let k = S.run; k >= Math.max(0, S.run - 40); k--) {
+    const r = series[k];
+    for (const e of events) if (e.at === k) items.push(`<li class="e"><span>#${k + 1}</span><span>이벤트: ${EVN[e.type]}</span></li>`);
+    const cls = r.alert ? "a" : r.flag ? "f" : "";
+    items.push(`<li class="${cls}"><span>#${String(k + 1).padStart(3)}</span><span>${r.edge.toFixed(1)}px ${r.over.toFixed(1)}cm ${r.pitch >= 0 ? "+" : ""}${r.pitch.toFixed(2)}°</span><span>${r.alert ? "경보" : r.flag ? "초과" + r.streak : "정상"}</span></li>`);
+  }
+  $("log").innerHTML = items.join("");
+}
+let rt = null; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(() => series.length && draw(), 50); }).observe(document.body);
+recompute();
+})();
+</script>
+</body>
+</html>

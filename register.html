@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>정합 Kabsch 시뮬레이터</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}html,body{margin:0;height:100%}[hidden]{display:none!important}
+:root{--bg:#0b1118;--panel:#121b26;--line:#22303f;--fg:#e6edf5;--muted:#8a9bb0;--sky:#1e9bd7;--navy:#002b68;--navy-hi:#6f9be0;--warn:#e8b84a;--bad:#e2685f;--ok:#5fcf9a;
+  --f-ui:"IBM Plex Sans KR","Malgun Gothic",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:14px}
+.app{display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);height:100%;padding:18px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));gap:12px}
+.hrow{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;padding:2px 4px}
+.brand{font-weight:700;font-size:17px;letter-spacing:.01em}.brand small{display:block;font-weight:400;color:var(--muted);font-size:12px;margin-top:2px}
+.links{display:flex;gap:6px;flex-wrap:wrap}
+.links a{color:var(--muted);text-decoration:none;font-size:12.5px;border:1px solid var(--line);border-radius:999px;padding:6px 13px;white-space:nowrap}
+.links a:hover{color:var(--fg);border-color:var(--sky)}.links a[aria-current="page"]{color:#fff;background:var(--sky);border-color:var(--sky)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:10px;min-height:0}
+.stage{position:relative;min-height:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse at 50% 30%,#13202d,var(--bg) 70%)}
+.stage canvas{position:absolute;inset:0;display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.top{position:absolute;left:12px;top:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:8px;pointer-events:none}
+.top>*{pointer-events:auto}
+.steps{display:flex;flex-wrap:wrap;gap:5px}
+.steps button{font:600 12px var(--f-ui);color:var(--muted);background:rgba(11,17,24,.75);border:1px solid var(--line);border-radius:999px;padding:5px 11px;cursor:pointer}
+.steps button[aria-current="step"]{color:#fff;background:var(--sky);border-color:var(--sky)}
+.steps button.done{color:var(--fg);border-color:#2f5d7a}
+.hudr{background:rgba(11,17,24,.85);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:12px/1.55 var(--f-mono);min-width:200px}
+.hudr .k{font:11px var(--f-ui);color:var(--muted)}
+.legend{position:absolute;left:14px;bottom:10px;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);pointer-events:none;max-width:calc(100% - 28px)}
+.legend i{display:inline-block;width:10px;height:10px;margin-right:5px;vertical-align:-1px}
+aside{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;overflow:auto;min-height:0;display:flex;flex-direction:column;gap:10px}
+aside h2{margin:0;font-size:12.5px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+.how{margin:0;font-size:12.5px;line-height:1.55;color:var(--muted)}.how b{color:var(--fg);font-weight:600}
+.nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.btn{font:600 12.5px var(--f-ui);color:var(--fg);background:#16222f;border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+.btn:hover{border-color:var(--sky)}.btn.pri{background:var(--navy);border-color:var(--sky)}
+.btn[aria-pressed="true"]{background:rgba(232,184,74,.16);border-color:var(--warn);color:var(--warn)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.explain{grid-template-columns:minmax(0,1fr);min-width:0;border:1px solid #2f5d7a;background:rgba(30,155,215,.07);border-radius:9px;padding:10px 12px;display:grid;gap:7px}
+.explain h3{margin:0;font-size:14.5px}.explain p{margin:0;font-size:13px;line-height:1.6}
+.explain .f{font:12.5px/1.6 var(--f-mono);background:#0d1520;border-radius:6px;padding:6px 8px;color:#cfe6f5;overflow-x:auto;white-space:nowrap}
+.mats{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.mat{overflow-x:auto}
+.mat{font:11.5px var(--f-mono)}.mat .l{font:600 11.5px var(--f-ui);color:var(--muted);margin-bottom:2px}
+.mat table{border-collapse:collapse;border-left:1.5px solid #4d6075;border-right:1.5px solid #4d6075;border-radius:3px}
+.mat td{padding:1px 5px;text-align:right;font-variant-numeric:tabular-nums}
+.chk{font-size:12.5px;line-height:1.5;padding:6px 9px;border-radius:7px;border-left:3px solid var(--ok);background:rgba(95,207,154,.09)}
+.chk.warn{border-color:var(--warn);background:rgba(232,184,74,.10)}.chk.bad{border-color:var(--bad);background:rgba(226,104,95,.10)}
+.res{display:grid;grid-template-columns:repeat(4,1fr);gap:3px 8px;font:11.5px var(--f-mono)}.res span{color:var(--muted)}
+.sz{display:grid;grid-template-columns:70px minmax(0,1fr) 64px;gap:8px;align-items:center;font-size:12px;color:var(--muted)}
+.sz input{width:100%;accent-color:var(--sky)}.sz output{font:12px var(--f-mono);color:var(--fg);text-align:right}
+.seg{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:12px;color:var(--muted)}
+.seg button{font:600 12px var(--f-ui);color:var(--muted);background:transparent;border:1px solid var(--line);border-radius:999px;padding:5px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{color:#fff;background:var(--navy);border-color:var(--sky)}
+.stats{display:grid;grid-template-columns:1fr auto;gap:3px 10px;font-size:12.5px;margin:0}
+.stats dt{color:var(--muted)}.stats dd{margin:0;font:500 12.5px var(--f-mono);text-align:right}
+details summary{cursor:pointer;font-size:12.5px;color:var(--muted);font-weight:600}
+details[open] summary{margin-bottom:6px}
+@media (max-width:860px){.app{height:auto;min-height:100%}main{grid-template-columns:minmax(0,1fr);align-content:start}.stage{height:62vh;min-height:400px}.hudr{min-width:0;font-size:11px}.mat{font-size:10.5px}.mat td{padding:1px 3px}.explain .f{font-size:11.5px}}
+</style></head><body>
+<div class="app">
+  <header><div class="hrow"><div class="brand">정합 (Kabsch / SVD) 쉽게 보기<small>LiDAR가 본 구멍 중심과 카메라가 본 구멍 중심을 겹치는 회전 R · 이동 t 구하기</small></div>
+    <nav class="links" aria-label="페이지"><a href="./index.html">3D 뷰어</a><a href="./basics.html">기초</a><a href="./algos.html">알고리즘</a><a href="./roi.html">① ROI</a><a href="./ransac.html">② RANSAC</a><a href="./register.html" aria-current="page">정합</a><a href="./miscal.html">오정합</a></nav></div></header>
+  <main>
+    <div class="stage" id="stage">
+      <canvas id="cv" aria-label="두 점 집합과 정합 과정"></canvas>
+      <div class="top"><div class="steps" id="steps"></div><div class="hudr" id="hudr" aria-live="polite"></div></div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <aside>
+      <section><h2>어떻게 보나요</h2>
+        <p class="how"><b>하늘색 원</b> = LiDAR가 찾은 구멍 중심, <b>남색 네모</b> = 카메라가 찾은 같은 구멍. 아래 <b>다음 ▶</b>으로 한 단계씩 넘기면 그림과 설명이 함께 바뀝니다. 그림은 드래그로 돌려 볼 수 있습니다 (계산은 모두 3D).</p></section>
+      <div class="nav"><button class="btn" id="b-prev">◀ 이전</button><button class="btn pri" id="b-next">다음 ▶</button><button class="btn" id="b-icp" aria-pressed="false">ICP와 비교</button></div>
+      <div class="explain" id="explain" aria-live="polite"></div>
+      <section id="icp-panel" hidden style="display:grid;gap:8px">
+        <h2>ICP 설정 (짝을 모르는 경우)</h2>
+        <label class="sz">초기 각도 오차<input type="range" id="icp-ang" min="0" max="180" step="5" value="15"><output id="icp-ang-o"></output></label>
+        <div class="seg"><button data-a="15">작은 오차 15°</button><button data-a="60">60°</button><button data-a="120">큰 오차 120°</button></div>
+        <div class="nav"><button class="btn pri" id="icp-step">ICP 1회</button><button class="btn pri" id="icp-run">ICP 자동</button><button class="btn" id="icp-reset">초기화</button></div>
+      </section>
+      <details id="setup" open><summary>모르는 정답 (R, t) · 잡음 · 보드 수 바꾸기</summary>
+        <div style="display:grid;gap:5px">
+          <div class="seg">보드 수 <span id="nb"><button data-n="1">1개</button><button data-n="2">2개</button><button data-n="3" aria-pressed="true">3개</button></span></div>
+          <label class="sz">yaw (z)<input type="range" id="yaw" min="-180" max="180" step="1" value="-50"><output></output></label>
+          <label class="sz">pitch (y)<input type="range" id="pitch" min="-45" max="45" step="1" value="8"><output></output></label>
+          <label class="sz">roll (x)<input type="range" id="roll" min="-45" max="45" step="1" value="-5"><output></output></label>
+          <label class="sz">t_x<input type="range" id="tx" min="-3" max="3" step="0.05" value="0.2"><output></output></label>
+          <label class="sz">t_y<input type="range" id="ty" min="-3" max="3" step="0.05" value="-0.6"><output></output></label>
+          <label class="sz">t_z<input type="range" id="tz" min="-3" max="3" step="0.05" value="0.3"><output></output></label>
+          <label class="sz">잡음 σ<input type="range" id="noise" min="0" max="3" step="0.1" value="0.5"><output></output></label>
+        </div></details>
+    </aside>
+  </main>
+</div>
+<script>
+(function () {
+  "use strict";
+  //MATH-START
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  const add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]], sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], mul = (a, s) => [a[0] * s, a[1] * s, a[2] * s];
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2], cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+  const len = a => Math.sqrt(dot(a, a)), unit = a => mul(a, 1 / len(a));
+  const mv = (M, v) => [dot(M[0], v), dot(M[1], v), dot(M[2], v)];
+  const mm = (A, B) => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+  const tr = A => [0, 1, 2].map(i => [A[0][i], A[1][i], A[2][i]]);
+  const det = A => dot(A[0], cross(A[1], A[2]));
+  const col = (A, j) => [A[0][j], A[1][j], A[2][j]];
+  const fromCols = (a, b, c) => [[a[0], b[0], c[0]], [a[1], b[1], c[1]], [a[2], b[2], c[2]]];
+  const I3 = () => [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+  function euler(yaw, pitch, roll) { // R = Rz(yaw) Ry(pitch) Rx(roll), degrees
+    const [a, b, c] = [yaw, pitch, roll].map(x => x * Math.PI / 180);
+    const Rz = [[Math.cos(a), -Math.sin(a), 0], [Math.sin(a), Math.cos(a), 0], [0, 0, 1]], Ry = [[Math.cos(b), 0, Math.sin(b)], [0, 1, 0], [-Math.sin(b), 0, Math.cos(b)]], Rx = [[1, 0, 0], [0, Math.cos(c), -Math.sin(c)], [0, Math.sin(c), Math.cos(c)]];
+    return mm(Rz, mm(Ry, Rx));
+  }
+  function eigSym3(A) { // Jacobi; returns vals + V (columns = eigenvectors), sorted descending
+    const a = A.map(r => r.slice()), V = I3();
+    for (let sw = 0; sw < 60; sw++) {
+      const off = a[0][1] ** 2 + a[0][2] ** 2 + a[1][2] ** 2; if (off < 1e-30) break;
+      for (let p = 0; p < 3; p++) for (let q = p + 1; q < 3; q++) {
+        if (Math.abs(a[p][q]) < 1e-300) continue;
+        const th = (a[q][q] - a[p][p]) / (2 * a[p][q]), t = Math.sign(th || 1) / (Math.abs(th) + Math.sqrt(th * th + 1)), c = 1 / Math.sqrt(t * t + 1), s = t * c;
+        for (let k = 0; k < 3; k++) { const x = a[k][p], y = a[k][q]; a[k][p] = c * x - s * y; a[k][q] = s * x + c * y; }
+        for (let k = 0; k < 3; k++) { const x = a[p][k], y = a[q][k]; a[p][k] = c * x - s * y; a[q][k] = s * x + c * y; }
+        for (let k = 0; k < 3; k++) { const x = V[k][p], y = V[k][q]; V[k][p] = c * x - s * y; V[k][q] = s * x + c * y; }
+      }
+    }
+    const idx = [0, 1, 2].sort((i, j) => a[j][j] - a[i][i]);
+    return { vals: idx.map(i => a[i][i]), V: fromCols(col(V, idx[0]), col(V, idx[1]), col(V, idx[2])) };
+  }
+  function svd3(H) { // H = U S V^T
+    const e = eigSym3(mm(tr(H), H)), V = e.V, S = e.vals.map(x => Math.sqrt(Math.max(0, x)));
+    const v1 = col(V, 0), v2 = col(V, 1), v3 = col(V, 2);
+    const u1 = unit(mv(H, v1)); let u2 = mv(H, v2); u2 = unit(sub(u2, mul(u1, dot(u1, u2))));
+    let u3 = cross(u1, u2); const hv3 = mv(H, v3); if (dot(u3, hv3) < 0) u3 = mul(u3, -1);
+    return { U: fromCols(u1, u2, u3), S, V };
+  }
+  const centroid = P => mul(P.reduce(add, [0, 0, 0]), 1 / P.length);
+  function kabsch(PL, PC) { // finds R, t with PC ≈ R PL + t
+    const cL = centroid(PL), cC = centroid(PC), qL = PL.map(p => sub(p, cL)), qC = PC.map(p => sub(p, cC));
+    const H = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+    qL.forEach((a, i) => { const b = qC[i]; for (let r = 0; r < 3; r++) for (let c = 0; c < 3; c++) H[r][c] += a[r] * b[c]; });
+    const { U, S, V } = svd3(H);
+    const d0 = det(mm(V, tr(U)));
+    const Vf = d0 < 0 ? fromCols(col(V, 0), col(V, 1), mul(col(V, 2), -1)) : V;
+    const R = mm(Vf, tr(U)), t = sub(cC, mv(R, cL));
+    const res = PL.map((p, i) => len(sub(add(mv(R, p), t), PC[i])));
+    const rmse = Math.sqrt(res.reduce((s, e) => s + e * e, 0) / res.length);
+    return { cL, cC, qL, qC, H, U, S, V, d0, R, t, res, rmse, flipped: d0 < 0 };
+  }
+  const rotErrDeg = (A, B) => Math.acos(Math.max(-1, Math.min(1, ((A[0][0] * B[0][0] + A[0][1] * B[0][1] + A[0][2] * B[0][2] + A[1][0] * B[1][0] + A[1][1] * B[1][1] + A[1][2] * B[1][2] + A[2][0] * B[2][0] + A[2][1] * B[2][1] + A[2][2] * B[2][2]) - 1) / 2))) * 180 / Math.PI;
+  // boards in the LiDAR frame (holes: 50 cm x 40 cm grid, order TL, TR, BR, BL)
+  const BOARDS = [{ c: [3.0, 0.0, 0.05], yaw: 8, tilt: 0 }, { c: [2.6, 1.9, -0.15], yaw: -36, tilt: 15 }, { c: [3.3, -1.8, 0.35], yaw: 29, tilt: -10 }];
+  function holesOf(b) {
+    const y = b.yaw * Math.PI / 180, tl = b.tilt * Math.PI / 180, u = [Math.sin(y), Math.cos(y), 0], n0 = [Math.cos(y), -Math.sin(y), 0];
+    const v = add(mul([0, 0, 1], Math.cos(tl)), mul(n0, Math.sin(tl)));
+    return [[-0.25, 0.2], [0.25, 0.2], [0.25, -0.2], [-0.25, -0.2]].map(h => add(b.c, add(mul(u, h[0]), mul(v, h[1]))));
+  }
+  function makeData(nb, Rt, tt, sigma, seed) {
+    const r = rng(seed), g = () => Math.sqrt(-2 * Math.log(r() + 1e-12)) * Math.cos(2 * Math.PI * r());
+    const L0 = [].concat(...BOARDS.slice(0, nb).map(holesOf));
+    const s = sigma / Math.SQRT2; // noise split between both sensors so |e| ~ σ per axis pair
+    const L = L0.map(p => add(p, [g() * s, g() * s, g() * s]));
+    const C = L0.map(p => add(add(mv(Rt, p), tt), [g() * s, g() * s, g() * s]));
+    return { L, C };
+  }
+  function icpRun(L, C, R0, t0, maxIt) { // point-to-point ICP with nearest-neighbour correspondences
+    const hist = [{ R: R0, t: t0, match: null }]; let R = R0, t = t0, prev = "";
+    for (let k = 0; k < maxIt; k++) {
+      const X = L.map(p => add(mv(R, p), t));
+      const match = X.map(x => { let bi = 0, bd = Infinity; C.forEach((c, j) => { const d = len(sub(x, c)); if (d < bd) { bd = d; bi = j; } }); return bi; });
+      const dist = X.map((x, i) => len(sub(x, C[match[i]])));
+      hist[hist.length - 1].match = match; hist[hist.length - 1].dist = dist;
+      const key = match.join(","); if (key === prev) { hist.converged = true; break; } prev = key;
+      const k2 = kabsch(L, match.map(j => C[j])); R = k2.R; t = k2.t;
+      hist.push({ R, t, match: null });
+    }
+    const last = hist[hist.length - 1];
+    if (!last.match) { const X = L.map(p => add(mv(R, p), t)); last.match = X.map(x => { let bi = 0, bd = Infinity; C.forEach((c, j) => { const d = len(sub(x, c)); if (d < bd) { bd = d; bi = j; } }); return bi; }); last.dist = X.map((x, i) => len(sub(x, C[last.match[i]]))); }
+    return hist;
+  }
+  //MATH-END
+  if (typeof document === "undefined") { module.exports = { kabsch, icpRun, makeData, euler, rotErrDeg, mm, mv, sub, add, det, centroid }; return; }
+
+  // ---------------- quaternion helpers for smooth animation ----------------
+  function quatFromR(m) {
+    const t = m[0][0] + m[1][1] + m[2][2]; let w, x, y, z;
+    if (t > 0) { const s = Math.sqrt(t + 1) * 2; w = s / 4; x = (m[2][1] - m[1][2]) / s; y = (m[0][2] - m[2][0]) / s; z = (m[1][0] - m[0][1]) / s; }
+    else if (m[0][0] > m[1][1] && m[0][0] > m[2][2]) { const s = Math.sqrt(1 + m[0][0] - m[1][1] - m[2][2]) * 2; w = (m[2][1] - m[1][2]) / s; x = s / 4; y = (m[0][1] + m[1][0]) / s; z = (m[0][2] + m[2][0]) / s; }
+    else if (m[1][1] > m[2][2]) { const s = Math.sqrt(1 + m[1][1] - m[0][0] - m[2][2]) * 2; w = (m[0][2] - m[2][0]) / s; x = (m[0][1] + m[1][0]) / s; y = s / 4; z = (m[1][2] + m[2][1]) / s; }
+    else { const s = Math.sqrt(1 + m[2][2] - m[0][0] - m[1][1]) * 2; w = (m[1][0] - m[0][1]) / s; x = (m[0][2] + m[2][0]) / s; y = (m[1][2] + m[2][1]) / s; z = s / 4; }
+    return [w, x, y, z];
+  }
+  function RfromQuat(q) { const [w, x, y, z] = q; return [[1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w)], [2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w)], [2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y)]]; }
+  function slerp(a, b, t) {
+    let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3]; if (d < 0) { b = b.map(x => -x); d = -d; }
+    if (d > 0.9995) { const r = a.map((x, i) => x + (b[i] - x) * t), n = Math.hypot(...r); return r.map(x => x / n); }
+    const th = Math.acos(d), s = Math.sin(th); return a.map((x, i) => (Math.sin((1 - t) * th) * x + Math.sin(t * th) * b[i]) / s);
+  }
+  const lerp3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+  const ease = t => t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+
+  // ---------------- state ----------------
+  const el = id => document.getElementById(id);
+  const ST = { step: 4, nb: 3, D: null, K: null, Rt: null, tt: null, icp: false, icpHist: null, icpK: 0, icpTimer: null,
+    pose: null, from: null, to: null, t0: 0, dur: 850, view: { phi: 196, th: 36 } };
+  const STEP_NAMES = ["처음", "① 짝", "② 무게중심", "③ 중심 빼기", "④ SVD → R", "⑤ t 구하기", "⑥ 확인"];
+  const f3 = v => (v < 0 ? "−" : " ") + Math.abs(v).toFixed(3);
+  const vec = v => `(${v.map(x => (x < 0 ? "−" : "") + Math.abs(x).toFixed(3)).join(", ")})`;
+  function targetPose(s) {
+    const K = ST.K, qR = quatFromR(K.R), q1 = [1, 0, 0, 0];
+    if (s <= 2) return { q: q1, mL: K.cL, mC: K.cC };
+    if (s === 3) return { q: q1, mL: [0, 0, 0], mC: [0, 0, 0] };
+    if (s === 4) return { q: qR, mL: [0, 0, 0], mC: [0, 0, 0] };
+    return { q: qR, mL: K.cC, mC: K.cC };
+  }
+  function icpPose(k) { const h = ST.icpHist[k]; return { q: quatFromR(h.R), mL: add(mv(h.R, ST.K.cL), h.t), mC: ST.K.cC }; }
+  function goPose(p, instant) { ST.from = instant || !ST.pose ? p : curPose(); ST.to = p; ST.t0 = performance.now(); if (instant || !ST.pose) ST.pose = p; }
+  function curPose() {
+    if (!ST.from) return ST.to; const t = ease(Math.min(1, (performance.now() - ST.t0) / ST.dur));
+    return { q: slerp(ST.from.q, ST.to.q, t), mL: lerp3(ST.from.mL, ST.to.mL, t), mC: lerp3(ST.from.mC, ST.to.mC, t), t };
+  }
+  function recompute(keepPose) {
+    const v = k => +el(k).value;
+    ST.Rt = euler(v("yaw"), v("pitch"), v("roll")); ST.tt = [v("tx"), v("ty"), v("tz")];
+    ST.D = makeData(ST.nb, ST.Rt, ST.tt, v("noise") / 100, 42 + ST.nb);
+    ST.K = kabsch(ST.D.L, ST.D.C);
+    if (ST.icp) icpReset(); else goPose(targetPose(ST.step), true);
+    // fixed framing: bounding sphere of everything any step can show
+    const all = [...ST.D.L, ...ST.D.C, ...ST.K.qL, ...ST.K.qC, [0, 0, 0], mv(ST.K.R, ST.K.cL)];
+    const lo = [0, 1, 2].map(i => Math.min(...all.map(p => p[i]))), hi = [0, 1, 2].map(i => Math.max(...all.map(p => p[i])));
+    ST.fitC = mul(add(lo, hi), 0.5); ST.fitR = Math.max(0.8, ...all.map(p => len(sub(p, ST.fitC))));
+    ST.floorZ = lo[2] - 0.25; ST.all = all;
+    panel();
+  }
+
+  // ---------------- UI ----------------
+  const stepsEl = el("steps");
+  STEP_NAMES.forEach((n, i) => { const b = document.createElement("button"); b.textContent = n; b.onclick = () => setStep(i); stepsEl.appendChild(b); });
+  function setStep(s) { if (ST.icp) toggleICP(false); ST.step = Math.max(0, Math.min(6, s)); goPose(targetPose(ST.step)); panel(); }
+  el("b-prev").onclick = () => setStep(ST.step - 1); el("b-next").onclick = () => setStep(ST.step + 1);
+  el("b-icp").onclick = () => toggleICP(!ST.icp);
+  ["yaw", "pitch", "roll", "tx", "ty", "tz", "noise"].forEach(k => el(k).addEventListener("input", () => { syncOut(); recompute(); }));
+  function syncOut() {
+    ["yaw", "pitch", "roll"].forEach(k => el(k).nextElementSibling.textContent = el(k).value + "°");
+    ["tx", "ty", "tz"].forEach(k => el(k).nextElementSibling.textContent = (+el(k).value).toFixed(2) + " m");
+    el("noise").nextElementSibling.textContent = (+el("noise").value).toFixed(1) + " cm";
+    el("icp-ang-o").textContent = el("icp-ang").value + "°";
+  }
+  el("nb").querySelectorAll("button").forEach(b => b.onclick = () => { ST.nb = +b.dataset.n; el("nb").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b)); recompute(); });
+  // ICP
+  function toggleICP(on) { ST.icp = on; el("b-icp").setAttribute("aria-pressed", on); el("icp-panel").hidden = !on; if (on) icpReset(); else { stopICP(); goPose(targetPose(ST.step)); } panel(); }
+  function icpReset() {
+    stopICP(); const a = +el("icp-ang").value, R0 = mm(euler(a, 0, 0), ST.Rt), t0 = sub(ST.K.cC, mv(R0, ST.K.cL));
+    ST.icpHist = icpRun(ST.D.L, ST.D.C, R0, t0, 40); ST.icpK = 0;
+    ST.icpAll = [].concat(...ST.icpHist.map(h => ST.D.L.map(p => add(mv(h.R, p), h.t)))); goPose(icpPose(0), true); panel();
+  }
+  function icpStep() { if (ST.icpK < ST.icpHist.length - 1) { ST.icpK++; goPose(icpPose(ST.icpK)); } panel(); }
+  function stopICP() { if (ST.icpTimer) clearInterval(ST.icpTimer); ST.icpTimer = null; el("icp-run").textContent = "ICP 자동"; }
+  el("icp-ang").oninput = () => { syncOut(); icpReset(); };
+  document.querySelectorAll("#icp-panel .seg button").forEach(b => b.onclick = () => { el("icp-ang").value = b.dataset.a; syncOut(); icpReset(); });
+  el("icp-step").onclick = () => { stopICP(); icpStep(); };
+  el("icp-reset").onclick = icpReset;
+  el("icp-run").onclick = () => {
+    if (ST.icpTimer) { stopICP(); return; }
+    if (ST.icpK >= ST.icpHist.length - 1) { ST.icpK = 0; goPose(icpPose(0), true); }
+    el("icp-run").textContent = "멈춤";
+    ST.icpTimer = setInterval(() => { icpStep(); if (ST.icpK >= ST.icpHist.length - 1) stopICP(); }, 700);
+  };
+
+  function matHTML(label, M) { return `<div class="mat"><div class="l">${label}</div><table>${M.map(r => `<tr>${r.map(x => `<td>${f3(x)}</td>`).join("")}</tr>`).join("")}</table></div>`; }
+  function panel() {
+    const K = ST.K, s = ST.step, N = ST.D.L.length, sig = +el("noise").value;
+    [...stepsEl.children].forEach((b, i) => { b.setAttribute("aria-current", !ST.icp && i === s ? "step" : "false"); b.classList.toggle("done", !ST.icp && i < s); });
+    el("b-prev").disabled = s === 0; el("b-next").disabled = s === 6;
+    const rErr = rotErrDeg(K.R, ST.Rt), tErr = len(sub(K.t, ST.tt)) * 1000;
+    let h = "";
+    if (ST.icp) {
+      const H = ST.icpHist, k = ST.icpK, cur = H[k], ok = cur.match.filter((j, i) => j === i).length;
+      const re = rotErrDeg(cur.R, ST.Rt), done = k === H.length - 1;
+      const meanD = cur.dist.reduce((a, b) => a + b, 0) / N * 1000;
+      h = `<h3>ICP: 짝을 모를 때</h3><p>① 지금 추정한 R, t로 LiDAR 점을 옮기고 ② 각 점에서 <b>가장 가까운</b> 카메라 점을 짝이라고 가정 ③ 그 짝으로 Kabsch 한 번 ④ 짝이 더 이상 안 바뀔 때까지 반복합니다. 초기 각도가 크게 틀리면 <b>엉뚱한 구멍끼리 짝</b>이 되어 틀린 답에서 멈춥니다(국소해).</p>
+        <dl class="stats"><dt>ICP 반복</dt><dd>${k} / ${H.length - 1}${done ? (H.converged ? " (짝 고정 → 멈춤)" : " (최대 반복)") : ""}</dd>
+        <dt>올바른 짝 (초록 선)</dt><dd>${ok} / ${N}</dd><dt>평균 최근접 거리</dt><dd>${meanD.toFixed(1)} mm</dd>
+        <dt>ICP 회전 오차 (정답 대비)</dt><dd style="color:${ok === N || re < rErr + 1 ? "var(--ok)" : "var(--bad)"}">${re.toFixed(2)}°</dd>
+        <dt>Kabsch (짝을 앎) · 1번 계산</dt><dd style="color:var(--ok)">${rErr.toFixed(2)}°</dd></dl>` +
+        (done ? (ok === N || re < rErr + 1 ? `<div class="chk">수렴: ICP도 정답에 도착 (${k}회 반복). 초기 추정이 충분히 가까웠기 때문입니다.</div>` : `<div class="chk bad">실패: ${k}회 반복 뒤 틀린 짝 ${N - ok}개로 굳어 회전이 ${re.toFixed(0)}° 틀린 채 멈춤. 짝을 아는 Kabsch는 한 번에 ${rErr.toFixed(2)}°.</div>`) : `<div class="chk warn">‘ICP 1회’ 또는 ‘ICP 자동’으로 반복을 진행하세요.</div>`);
+    } else if (s === 0) {
+      h = `<h3>목표: p<sub>C</sub> ≈ R·p<sub>L</sub> + t</h3><p>보드 ${ST.nb}개 × 구멍 4개 = <b>${N}쌍</b>. 같은 구멍을 LiDAR(하늘색)와 카메라(남색)가 각자의 좌표로 측정했습니다. 두 점 구름을 겹치게 만드는 <b>회전 R</b>과 <b>이동 t</b>가 바로 캘리브레이션 결과(외부 파라미터)입니다.</p><div class="f">찾을 것: R (3×3 회전), t (3×1 이동)</div>`;
+    } else if (s === 1) {
+      h = `<h3>① 짝 맞추기</h3><p>보드 번호와 구멍 위치(좌상·우상·우하·좌하)로 i번째 LiDAR 점과 i번째 카메라 점을 묶습니다. 선 하나가 한 쌍입니다. <b>짝을 이미 알기 때문에</b> 반복 없이 한 번에 풀 수 있습니다 (짝을 모르면 ICP, 오른쪽 위 버튼).</p><div class="f">(p<sub>L,i</sub> , p<sub>C,i</sub>) , i = 1 … ${N}</div>`;
+    } else if (s === 2) {
+      h = `<h3>② 무게중심 c<sub>L</sub>, c<sub>C</sub></h3><p>각 점 구름의 <b>평균 위치</b>를 구합니다. 두 구름의 ‘대표 위치’입니다.</p><div class="f">c<sub>L</sub> = (1/N) Σ p<sub>L,i</sub> = ${vec(K.cL)}<br>c<sub>C</sub> = (1/N) Σ p<sub>C,i</sub> = ${vec(K.cC)}</div>`;
+    } else if (s === 3) {
+      h = `<h3>③ 중심 빼기</h3><p>각 점에서 자기 무게중심을 빼서 두 구름을 모두 <b>원점</b>으로 옮깁니다. 이제 남은 차이는 <b>회전뿐</b>입니다.</p><div class="f">q<sub>L,i</sub> = p<sub>L,i</sub> − c<sub>L</sub> , q<sub>C,i</sub> = p<sub>C,i</sub> − c<sub>C</sub><br>예) q<sub>L,1</sub> = ${vec(K.qL[0])}<br>&nbsp;&nbsp;&nbsp;&nbsp;q<sub>C,1</sub> = ${vec(K.qC[0])}</div>`;
+    } else if (s === 4) {
+      const Vf = K.flipped ? K.V.map(r => [r[0], r[1], -r[2]]) : K.V;
+      h = `<h3>④ H 만들기 → SVD → R = V Uᵀ</h3><p><b>H</b>는 ‘LiDAR 쪽 방향과 카메라 쪽 방향이 얼마나 같이 움직이는지’를 모은 3×3 표입니다. SVD로 H = U S Vᵀ 로 나누면, H를 가장 잘 맞추는 회전이 <b>R = V Uᵀ</b> 입니다.</p>
+        <div class="f">H = Σ q<sub>L,i</sub> q<sub>C,i</sub>ᵀ  →  H = U · S · Vᵀ  →  R = V Uᵀ</div>
+        <div class="mats">${matHTML("H (m²)", K.H)}${matHTML("U", K.U)}${matHTML("V", K.V)}${matHTML(K.flipped ? "R = V′Uᵀ (반사 보정)" : "R = V Uᵀ", K.R)}</div>
+        <div class="f">S = diag(${K.S.map(x => x.toFixed(3)).join(", ")})</div>
+        <div class="chk ${K.flipped ? "warn" : ""}">det(V Uᵀ) = ${K.d0.toFixed(3)} → ${K.flipped ? "−1 = 거울상(반사)! V의 3번째 열 부호를 바꿔 det(R) = +1로 보정" : "+1 이므로 올바른 회전 (반사 아님)"}${ST.nb === 1 ? "<br>보드 1개면 구멍 4점이 모두 한 평면 위 → S의 3번째 값 ≈ 0. det 보정 덕분에 R이 하나로 정해짐." : ""}</div>`;
+    } else if (s === 5) {
+      h = `<h3>⑤ 이동 t 구하기</h3><p>회전시킨 LiDAR 무게중심(R·c<sub>L</sub>)을 카메라 무게중심 c<sub>C</sub>로 옮기는 화살표가 <b>t</b>입니다.</p><div class="f">t = c<sub>C</sub> − R·c<sub>L</sub> = ${vec(K.t)} m<br>정답 t = ${vec(ST.tt)} m</div>`;
+    } else {
+      const res = K.res.map((e, i) => `<span>#${i + 1}</span>${(e * 1000).toFixed(1)}`).join("");
+      h = `<h3>⑥ 확인: 남은 오차</h3><p>구한 R, t로 LiDAR 점을 옮긴 뒤 짝지은 카메라 점과의 거리를 잽니다. 축마다 잡음 σ = ${sig.toFixed(1)} cm 이면 기대 RMSE ≈ √3·σ = ${(Math.sqrt(3)*sig*10).toFixed(1)} mm 정도라서, 이와 비슷하면 정상입니다. (그림의 노란 선은 오차를 ×30 확대)</p>
+        <div class="f">e<sub>i</sub> = ‖R·p<sub>L,i</sub> + t − p<sub>C,i</sub>‖ , RMSE = √( Σ e<sub>i</sub>² / N ) = <b>${(K.rmse * 1000).toFixed(1)} mm</b></div>
+        <div class="res">${res.replace(/(<\/span>)([\d.]+)/g, "$1<b>$2</b>")}</div><div style="font-size:11px;color:var(--muted)">점별 오차 (mm)</div>
+        <div class="chk">정답과 비교: 회전 오차 ${rErr.toFixed(3)}°, 이동 오차 ${tErr.toFixed(1)} mm</div>`;
+    }
+    el("explain").innerHTML = h;
+    el("hudr").innerHTML = ST.icp
+      ? `<div class="k">ICP (짝 모름) · 초기 오차 ${el("icp-ang").value}°</div>반복 ${ST.icpK} · 회전 오차 ${rotErrDeg(ST.icpHist[ST.icpK].R, ST.Rt).toFixed(1)}°<br><span class="k">Kabsch (짝 앎)</span> 1회 · ${rErr.toFixed(2)}°`
+      : `<div class="k">짝 ${N}쌍 · 잡음 σ ${sig.toFixed(1)} cm</div>RMSE ${(K.rmse * 1000).toFixed(1)} mm<br>회전 오차 ${rErr.toFixed(3)}°<br>이동 오차 ${tErr.toFixed(1)} mm`;
+    const lg = [["#1e9bd7", "LiDAR 구멍 중심 p_L", "50%"], ["#002b68", "카메라 구멍 중심 p_C", "0"]];
+    if (ST.icp) lg.push(["#5fcf9a", "올바른 짝", "0"], ["#e2685f", "틀린 짝 (최근접)", "0"]);
+    else { if (s >= 1) lg.push(["#8a9bb0", "짝", "0"]); if (s >= 2) lg.push(["#e8b84a", "무게중심 · t · 오차", "0"]); }
+    el("legend").innerHTML = lg.map(l => `<span><i style="background:${l[0]};border-radius:${l[2]};${l[0] === "#002b68" ? "outline:1.5px solid #6f9be0" : ""}"></i>${l[1]}</span>`).join("") + "<span>드래그로 회전</span>";
+  }
+
+  // ---------------- drawing (orthographic projection of the 3D scene) ----------------
+  const cv = el("cv"), stage = el("stage"), g = cv.getContext("2d");
+  let W = 0, Hh = 0, dpr = 1;
+  function resize() { dpr = Math.min(devicePixelRatio || 1, 2); W = stage.clientWidth; Hh = stage.clientHeight; cv.width = W * dpr; cv.height = Hh * dpr; }
+  window.addEventListener("resize", resize);
+  function camBasis() {
+    const ph = ST.view.phi * Math.PI / 180, th = ST.view.th * Math.PI / 180;
+    const e = [Math.cos(th) * Math.cos(ph), Math.cos(th) * Math.sin(ph), Math.sin(th)], r = [-Math.sin(ph), Math.cos(ph), 0];
+    return { e, r, u: cross(e, r) };
+  }
+  let B, SC, OX, OY;
+  const P2 = p => { const q = sub(p, ST.fitC); return [OX + SC * dot(q, B.r), OY - SC * dot(q, B.u)]; };
+  function line(a, b, color, w, dash) { const A = P2(a), C = P2(b); g.strokeStyle = color; g.lineWidth = w; g.setLineDash(dash || []); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(C[0], C[1]); g.stroke(); g.setLineDash([]); }
+  function arrow(a, b, color, label) {
+    const A = P2(a), C = P2(b), ang = Math.atan2(C[1] - A[1], C[0] - A[0]), L = Math.hypot(C[0] - A[0], C[1] - A[1]); if (L < 4) return;
+    g.strokeStyle = g.fillStyle = color; g.lineWidth = 2; g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(C[0] - 9 * Math.cos(ang), C[1] - 9 * Math.sin(ang)); g.stroke();
+    g.beginPath(); g.moveTo(C[0], C[1]); g.lineTo(C[0] - 12 * Math.cos(ang - 0.4), C[1] - 12 * Math.sin(ang - 0.4)); g.lineTo(C[0] - 12 * Math.cos(ang + 0.4), C[1] - 12 * Math.sin(ang + 0.4)); g.fill();
+    if (label) text(label, (A[0] + C[0]) / 2 + 8, (A[1] + C[1]) / 2 - 8, color);
+  }
+  function text(s, x, y, color, font) { g.font = font || "600 12px IBM Plex Sans KR, sans-serif"; const w = g.measureText(s).width; x = Math.max(6, Math.min(x, W - w - 8)); g.fillStyle = "rgba(11,17,24,.78)"; g.fillRect(x - 3, y - 12, w + 6, 16); g.fillStyle = color; g.fillText(s, x, y); }
+  function ptL(p, alpha, r) { const s = P2(p); g.globalAlpha = alpha; g.fillStyle = "#1e9bd7"; g.beginPath(); g.arc(s[0], s[1], r || 5.5, 0, 7); g.fill(); g.strokeStyle = "#bfe6fa"; g.lineWidth = 1; g.stroke(); g.globalAlpha = 1; }
+  function ptC(p, alpha, r) { const s = P2(p), k = r || 5.5; g.globalAlpha = alpha; g.fillStyle = "#002b68"; g.fillRect(s[0] - k, s[1] - k, 2 * k, 2 * k); g.strokeStyle = "#6f9be0"; g.lineWidth = 1.6; g.strokeRect(s[0] - k, s[1] - k, 2 * k, 2 * k); g.globalAlpha = 1; }
+  function cross2(p, color, label) { const s = P2(p); g.strokeStyle = color; g.lineWidth = 2.5; g.beginPath(); g.moveTo(s[0] - 9, s[1] - 9); g.lineTo(s[0] + 9, s[1] + 9); g.moveTo(s[0] + 9, s[1] - 9); g.lineTo(s[0] - 9, s[1] + 9); g.stroke(); if (label) text(label, s[0] + 11, s[1] - 8, color); }
+  function boardsOutline(P, color, alpha) { g.globalAlpha = alpha; for (let b = 0; b < P.length / 4; b++) { const q = P.slice(4 * b, 4 * b + 4).map(P2); g.strokeStyle = color; g.lineWidth = 1.2; g.beginPath(); q.forEach((s, i) => i ? g.lineTo(s[0], s[1]) : g.moveTo(s[0], s[1])); g.closePath(); g.stroke(); } g.globalAlpha = 1; }
+  function draw() {
+    g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, Hh);
+    if (!ST.K) return;
+    B = camBasis();
+    const topPad = W < 600 ? 120 : 70, botPad = 34;
+    const pr = (ST.icp && ST.icpAll ? ST.all.concat(ST.icpAll) : ST.all).map(p => { const q = sub(p, ST.fitC); return [dot(q, B.r), dot(q, B.u)]; });
+    const x0 = Math.min(...pr.map(p => p[0])), x1 = Math.max(...pr.map(p => p[0])), y0 = Math.min(...pr.map(p => p[1])), y1 = Math.max(...pr.map(p => p[1]));
+    SC = Math.min((W - 60) / Math.max(0.5, x1 - x0), (Hh - topPad - botPad - 40) / Math.max(0.5, y1 - y0));
+    OX = W / 2 - SC * (x0 + x1) / 2; OY = topPad + 20 + (Hh - topPad - botPad - 40) / 2 + SC * (y0 + y1) / 2;
+    // floor grid (0.5 m)
+    const fc = ST.fitC, R0 = Math.ceil(ST.fitR / 0.5) * 0.5 + 0.5, z = ST.floorZ;
+    g.lineWidth = 1;
+    for (let k = -R0; k <= R0 + 1e-9; k += 0.5) {
+      const x = Math.round((fc[0] + k) * 2) / 2, y = Math.round((fc[1] + k) * 2) / 2;
+      line([x, fc[1] - R0, z], [x, fc[1] + R0, z], "#17222e", 1); line([fc[0] - R0, y, z], [fc[0] + R0, y, z], "#17222e", 1);
+    }
+    // origin axes
+    [[[0.5, 0, 0], "#e2685f", "x"], [[0, 0.5, 0], "#5fcf9a", "y"], [[0, 0, 0.5], "#1e9bd7", "z"]].forEach(a => { line([0, 0, 0], a[0], a[1], 2); const s = P2(a[0]); g.fillStyle = a[1]; g.font = "600 11px IBM Plex Mono, monospace"; g.fillText(a[2], s[0] + 3, s[1] - 3); });
+    { const s = P2([0, 0, 0]); g.fillStyle = "#8a9bb0"; g.font = "11px IBM Plex Sans KR, sans-serif"; g.fillText("원점", s[0] + 6, s[1] + 14); }
+    const pose = curPose(), Rq = RfromQuat(pose.q), K = ST.K, D = ST.D;
+    const Ld = D.L.map(p => add(mv(Rq, sub(p, K.cL)), pose.mL)), Cd = D.C.map(p => add(sub(p, K.cC), pose.mC));
+    const moved = len(sub(pose.mL, K.cL)) > 1e-6 || len(sub(pose.mC, K.cC)) > 1e-6 || Math.abs(pose.q[0]) < 0.99999;
+    // ghosts of the original measurements
+    if (moved) { boardsOutline(D.L, "#1e9bd7", 0.18); boardsOutline(D.C, "#6f9be0", 0.18); D.L.forEach(p => ptL(p, 0.16, 4)); D.C.forEach(p => ptC(p, 0.16, 4)); }
+    const s = ST.step;
+    boardsOutline(Ld, "#1e9bd7", 0.55); boardsOutline(Cd, "#6f9be0", 0.65);
+    if (ST.icp) {
+      const h = ST.icpHist[ST.icpK], X = Ld;
+      const settled = !ST.from || (performance.now() - ST.t0) >= ST.dur;
+      if (settled) h.match.forEach((j, i) => line(X[i], Cd[j], j === i ? "#5fcf9a" : "#e2685f", 2));
+    } else {
+      if (s >= 1 && s <= 5) Ld.forEach((p, i) => line(p, Cd[i], "rgba(200,214,230,.45)", 1.2, [4, 4]));
+      if (s === 2) { cross2(K.cL, "#e8b84a", "c_L"); cross2(K.cC, "#e8b84a", "c_C"); }
+      if (s === 3) { arrow(K.cL, [0, 0, 0], "rgba(232,184,74,.6)", "− c_L"); arrow(K.cC, [0, 0, 0], "rgba(232,184,74,.6)", "− c_C"); }
+      if (s === 4) text("원점에서 q_L(원)을 R만큼 회전 → q_C(네모)와 겹침", 16, Hh - (W < 600 ? 88 : 62), "#e8b84a");
+      if (s === 5) { const rc = mv(K.R, K.cL); cross2(rc, "rgba(232,184,74,.7)", "R·c_L"); cross2(K.cC, "#e8b84a", "c_C"); if ((pose.t || 1) >= 0.999) arrow(rc, K.cC, "#e8b84a", "t = c_C − R·c_L"); }
+      if (s === 6) Ld.forEach((p, i) => { const e = sub(p, Cd[i]); line(Cd[i], add(Cd[i], mul(e, 30)), "#e8b84a", 2.5); });
+    }
+
+    // camera squares drawn larger underneath so overlapping pairs read as a circle inside a square
+    Cd.forEach(p => ptC(p, 1, 7)); Ld.forEach(p => ptL(p, 1, 4.6));
+    if (!ST.icp && s <= 2) { g.font = "10px IBM Plex Mono, monospace"; g.fillStyle = "#8a9bb0"; Ld.forEach((p, i) => { const q = P2(p); g.fillText(i + 1, q[0] + 7, q[1] - 6); }); }
+    // set labels
+    if (!ST.icp && s < 3) { const top = (P, lo) => { const q = P.map(P2); const y = lo ? Math.max(...q.map(a => a[1])) + 34 : Math.min(...q.map(a => a[1])); const x = q.reduce((a, b) => a + b[0], 0) / q.length; return [x, y]; }; const a = top(Ld), b = top(Cd, true); text('LiDAR가 본 구멍 중심 (LiDAR 좌표)', a[0] - 90, a[1] - 22, '#1e9bd7'); text('카메라가 본 구멍 중심 (카메라 좌표)', b[0] - 90, b[1] - 22, '#9dbbea'); }
+    if (s === 6 && !ST.icp) text("노란 선 = 점별 오차 × 30 (확대)", 16, Hh - (W < 600 ? 88 : 62), "#e8b84a");
+    if (moved && !ST.icp) text("흐린 점 = 원래 측정 위치", 16, Hh - (W < 600 ? 66 : 40), "#8a9bb0", "11px IBM Plex Sans KR, sans-serif");
+  }
+  function loop() { draw(); requestAnimationFrame(loop); }
+  // drag to orbit the view
+  let drag = null;
+  cv.addEventListener("pointerdown", e => { drag = [e.clientX, e.clientY]; cv.setPointerCapture(e.pointerId); cv.style.cursor = "grabbing"; });
+  cv.addEventListener("pointermove", e => { if (!drag) return; ST.view.phi -= (e.clientX - drag[0]) * 0.4; ST.view.th = Math.max(3, Math.min(89.5, ST.view.th + (e.clientY - drag[1]) * 0.4)); drag = [e.clientX, e.clientY]; });
+  cv.addEventListener("pointerup", () => { drag = null; cv.style.cursor = ""; });
+
+  const m = /s(\d)/.exec(location.hash); if (m) ST.step = Math.min(6, +m[1]);
+  syncOut(); resize(); recompute();
+  if (/icp/.test(location.hash)) { const a = /icp(\d+)/.exec(location.hash); if (a) el("icp-ang").value = a[1]; syncOut(); toggleICP(true); ST.icpK = ST.icpHist.length - 1; goPose(icpPose(ST.icpK), true); panel(); }
+  loop();
+})();
+</script>
+</body></html>

@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>캘리브레이션 기초 체험</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+*{box-sizing:border-box}
+:root {
+  --bg: #0b1118; --panel: #121b26; --line: #22303f; --fg: #e6edf5; --muted: #8a9bb0;
+  --sky: #1e9bd7; --navy: #002b68; --warn: #e8b84a; --ok: #5fd39a; --board: #c9d6e6;
+  --f-ui: "IBM Plex Sans KR", "Malgun Gothic", system-ui, sans-serif; --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-ui); font-size: 14px; }
+.app { display: grid; grid-template-rows: auto 1fr; grid-template-columns: minmax(0, 1fr); height: 100%; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 16px max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
+.hrow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; padding: 2px 4px; }
+.brand { font-weight: 700; font-size: 17px; letter-spacing: .02em; }
+.brand small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: 0; margin-top: 2px; }
+.links { display: flex; gap: 8px; flex-wrap: wrap; }
+.links a { color: var(--muted); text-decoration: none; font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; white-space: nowrap; }
+.links a:hover { color: var(--fg); border-color: var(--sky); }
+.links a[aria-current="page"] { color: #fff; background: var(--sky); border-color: var(--sky); }
+main { display: grid; min-height: 0; gap: 10px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr) 330px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "v3 img ctl" "v3 mat ctl"; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; min-width: 0; }
+.stage { grid-area: v3; position: relative; min-height: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 30%, #13202d, var(--bg) 70%); }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.hud { position: absolute; left: 14px; top: 12px; pointer-events: none; }
+.hud .t { font-weight: 700; font-size: 15px; } .hud .s { color: var(--muted); font-size: 12px; }
+.legend { position: absolute; left: 14px; bottom: 12px; right: 14px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+.imgcard { grid-area: img; padding: 10px; display: grid; gap: 8px; }
+.imgcard canvas { width: 100%; aspect-ratio: 960 / 600; display: block; border-radius: 6px; background: #000; }
+h2 { margin: 0; font-size: 13px; color: var(--muted); font-weight: 600; letter-spacing: .03em; }
+.cap { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mat { grid-area: mat; overflow: auto; display: grid; gap: 10px; align-content: start; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.score { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.score b { font: 600 30px var(--f-mono); font-variant-numeric: tabular-nums; }
+.score .st { font-weight: 700; font-size: 14px; padding: 2px 10px; border-radius: 999px; }
+.st.good { color: #062; background: var(--ok); } .st.bad { color: #2a1d00; background: var(--warn); }
+.mx { font: 12px/1.55 var(--f-mono); font-variant-numeric: tabular-nums; white-space: pre; color: var(--fg); margin: 6px 0 0; overflow-x: auto; }
+.mx .d { color: var(--muted); }
+.sub { font-size: 12px; color: var(--muted); line-height: 1.5; margin: 4px 0 0; }
+aside { grid-area: ctl; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; overflow: auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.how { font-size: 12px; line-height: 1.6; color: var(--muted); background: rgba(30,155,215,.07); border: 1px solid rgba(30,155,215,.3); border-radius: 8px; padding: 8px 10px; margin: 0; }
+.how b { color: var(--fg); }
+.sz { display: grid; grid-template-columns: 84px minmax(0, 1fr) 62px; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
+.sz input { width: 100%; accent-color: var(--sky); margin: 0; }
+.sz output { font: 12px var(--f-mono); color: var(--fg); text-align: right; font-variant-numeric: tabular-nums; }
+.sz.off output { color: var(--warn); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+button.b { font: 600 13px var(--f-ui); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer; }
+button.b:hover { border-color: var(--sky); }
+button.b.pri { background: var(--navy); border-color: var(--sky); color: #fff; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--sky); outline-offset: 2px; }
+.grp { font-size: 11px; color: var(--muted); letter-spacing: .05em; margin-top: 4px; border-top: 1px solid var(--line); padding-top: 8px; }
+@media (max-width: 1180px) {
+  main { grid-template-columns: minmax(0, 1fr) 320px; grid-template-rows: auto auto 420px; grid-template-areas: "img ctl" "mat ctl" "v3 ctl"; }
+  .app { height: auto; min-height: 100%; }
+}
+@media (max-width: 820px) {
+  main { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-template-areas: "img" "ctl" "mat" "v3"; }
+  .stage { height: 60vh; min-height: 340px; }
+  .links a { padding: 6px 11px; font-size: 12px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="hrow">
+    <div class="brand">캘리브레이션 기초 체험<small>내부 파라미터 K · 왜곡 D · LiDAR→카메라 외부 파라미터 [R|t] 를 직접 움직여 보기</small></div>
+    <nav class="links" aria-label="시뮬레이터 목록">
+      <a href="./index.html">3D 뷰어</a><a href="./basics.html" aria-current="page">기초 체험</a><a href="./algos.html">알고리즘 비교</a><a href="./roi.html">ROI</a><a href="./ransac.html">RANSAC</a><a href="./register.html">정합</a><a href="./miscal.html">이상 감지</a>
+    </nav>
+  </header>
+  <main>
+    <div class="stage" id="stage">
+      <canvas id="cv3" aria-label="LiDAR와 카메라가 있는 3D 장면"></canvas>
+      <div class="hud"><div class="t">3D 장면</div><div class="s">32채널 회전형 LiDAR · 카메라 1대 · 구멍 4개 캘판</div></div>
+      <div class="legend"><span><i style="background:#7fe0c4"></i>LiDAR</span><span><i style="background:var(--sky)"></i>카메라(정답)</span><span><i style="background:var(--warn)"></i>카메라(현재 추정)</span><span>점 색 = 거리</span><span>드래그 회전 · 휠/핀치 확대</span></div>
+    </div>
+    <section class="card imgcard">
+      <div class="cap"><h2>카메라 영상 + LiDAR 점 투영</h2><span class="sub" style="margin:0">s·[u v 1]ᵀ = K·[R|t]·[X Y Z 1]ᵀ</span></div>
+      <canvas id="img" width="960" height="600" aria-label="가상 카메라 영상 위에 투영한 LiDAR 점"></canvas>
+    </section>
+    <section class="mat">
+      <div class="card">
+        <h2>정렬 점수 · 구멍 중심 4개 평균 픽셀 오차</h2>
+        <div class="score"><b id="sc">0.00 px</b><span class="st good" id="st">정렬 완료!</span></div>
+        <p class="sub" id="holes"></p>
+        <h2 style="margin-top:10px">K (내부 파라미터)</h2>
+        <div class="mx" id="mK"></div>
+        <h2 style="margin-top:8px">D (왜곡 계수)</h2>
+        <div class="mx" id="mD"></div>
+      </div>
+      <div class="card">
+        <h2>[R|t] LiDAR → 카메라 (4×4)</h2>
+        <div class="mx" id="mT"></div>
+        <p class="sub">R: LiDAR 축(x 앞, y 왼, z 위)을 카메라 축(x 오른, y 아래, z 앞)으로 돌림. t: LiDAR 원점이 카메라 좌표계에서 어디 있는지(m).</p>
+      </div>
+    </section>
+    <aside>
+      <p class="how"><b>어떻게 보나요</b> — 카메라 영상에 LiDAR 점(색 = 거리)을 지금 파라미터로 투영합니다. 정답이면 점이 캘판 구멍·상자 모서리에 딱 맞습니다. 슬라이더로 오차를 넣으면 점이 밀리고, <span style="color:var(--warn)">노란 ×</span>(LiDAR로 찾은 구멍 중심)가 <span style="color:var(--sky)">파란 원</span>(영상 속 진짜 구멍)에서 멀어집니다.</p>
+      <div class="btns"><button class="b" id="reset">정답으로</button><button class="b pri" id="rand">랜덤으로 틀어놓기</button></div>
+      <p class="sub" id="chal" style="margin:0"></p>
+      <div class="grp">외부 파라미터 오차 (LiDAR 좌표계 기준)</div>
+      <div id="sl"></div>
+    </aside>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+"use strict";
+const DEG = Math.PI / 180;
+// ---------- small linear algebra (3x3 row-major) ----------
+const M = {
+  mul(a, b) { const r = new Array(9); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) r[i*3+j] = a[i*3]*b[j] + a[i*3+1]*b[3+j] + a[i*3+2]*b[6+j]; return r; },
+  mv(a, v) { return [a[0]*v[0]+a[1]*v[1]+a[2]*v[2], a[3]*v[0]+a[4]*v[1]+a[5]*v[2], a[6]*v[0]+a[7]*v[1]+a[8]*v[2]]; },
+  tr(a) { return [a[0],a[3],a[6],a[1],a[4],a[7],a[2],a[5],a[8]]; },
+  rx(t) { const c = Math.cos(t), s = Math.sin(t); return [1,0,0, 0,c,-s, 0,s,c]; },
+  ry(t) { const c = Math.cos(t), s = Math.sin(t); return [c,0,s, 0,1,0, -s,0,c]; },
+  rz(t) { const c = Math.cos(t), s = Math.sin(t); return [c,-s,0, s,c,0, 0,0,1]; },
+};
+const add = (a, b) => [a[0]+b[0], a[1]+b[1], a[2]+b[2]], sub = (a, b) => [a[0]-b[0], a[1]-b[1], a[2]-b[2]];
+const scl = (a, s) => [a[0]*s, a[1]*s, a[2]*s], dot = (a, b) => a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+const norm = a => { const l = Math.hypot(a[0], a[1], a[2]); return [a[0]/l, a[1]/l, a[2]/l]; };
+let seed = 7; const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+const gauss = () => { let u = 0, v = 0; while (u === 0) u = rnd(); v = rnd(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+
+// ---------- scene (world: x forward, y left, z up; floor z = 0) ----------
+const L = [0, 0, 1.6];                       // LiDAR position (LiDAR axes = world axes)
+const C = [0.15, 0, 1.3], CAM_PITCH = 4 * DEG; // camera 15 cm ahead, 30 cm below, pitched down 4°
+const W = 960, H = 600;
+const K0 = { fx: 760, fy: 760, cx: 480, cy: 300 }, K1_TRUE = -0.10;
+const zc = [Math.cos(CAM_PITCH), 0, -Math.sin(CAM_PITCH)], xc = [0, -1, 0], yc = cross(zc, xc);
+const R0 = [...xc, ...yc, ...zc];            // world(=LiDAR axes) -> camera
+const t0 = M.mv(R0, sub(L, C));              // X_c = R0·X_l + t0
+
+const rects = [], boxes = [];
+function rect(c, u, v, hu, hv, col, holes) { const r = { c, u, v, n: cross(u, v), hu, hv, col, holes: holes || [] }; rects.push(r); return r; }
+function box(min, max, col, tag) { const b = { min, max, col, tag }; boxes.push(b); return b; }
+const floor = rect([2.5, -0.75, 0], [1, 0, 0], [0, 1, 0], 6.5, 5.25, "#36424f");
+const wallB = rect([9, -0.75, 1.6], [0, 1, 0], [0, 0, 1], 5.25, 1.6, "#5a6878");
+const wallL = rect([2.5, 4.5, 1.6], [1, 0, 0], [0, 0, 1], 6.5, 1.6, "#4e5b6b");
+const PSI = -18 * DEG, BC = [3.4, 0.45, 1.35];
+const bn = [-Math.cos(PSI), -Math.sin(PSI), 0];       // board normal, facing the sensors
+const bu = [Math.sin(PSI), -Math.cos(PSI), 0];         // board horizontal axis (camera-right)
+const HOLES = [[-0.25, 0.18], [0.25, 0.18], [-0.25, -0.18], [0.25, -0.18]], HR = 0.12;
+const board = rect(BC, bu, [0, 0, 1], 0.5, 0.4, "#e3e8ee", HOLES.map(h => ({ a: h[0], b: h[1], r: HR })));
+board.n = bn;
+box([4.6, 1.8, 0], [5.4, 2.6, 1.0], "#b07d4f", "b1");
+box([6.0, -2.9, 0], [7.2, -2.1, 1.6], "#5f8fb0", "b2");
+box([2.8, -1.85, 0], [3.3, -1.35, 0.5], "#c49a5c", "b3");
+const legA = add(BC, scl(bu, -0.35)), legB = add(BC, scl(bu, 0.35));
+box([legA[0]-0.03, legA[1]-0.03, 0], [legA[0]+0.03, legA[1]+0.03, 0.95], "#3b4450", "leg");
+box([legB[0]-0.03, legB[1]-0.03, 0], [legB[0]+0.03, legB[1]+0.03, 0.95], "#3b4450", "leg");
+const holeW = HOLES.map(h => add(add(BC, scl(bu, h[0])), [0, 0, h[1]]));   // hole centers (world)
+const holeL = holeW.map(p => sub(p, L));                                    // ... in LiDAR frame
+
+// ---------- simulated 32-channel spinning LiDAR ----------
+function hitRect(o, d, r) {
+  const den = dot(d, r.n); if (Math.abs(den) < 1e-9) return Infinity;
+  const t = dot(sub(r.c, o), r.n) / den; if (t <= 0.05) return Infinity;
+  const p = add(o, scl(d, t)), q = sub(p, r.c), a = dot(q, r.u), b = dot(q, r.v);
+  if (Math.abs(a) > r.hu || Math.abs(b) > r.hv) return Infinity;
+  for (const h of r.holes) if ((a-h.a)**2 + (b-h.b)**2 < h.r*h.r) return Infinity;
+  return t;
+}
+function hitBox(o, d, b) {
+  let t0 = -Infinity, t1 = Infinity;
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-12) { if (o[i] < b.min[i] || o[i] > b.max[i]) return Infinity; continue; }
+    let a = (b.min[i]-o[i]) / d[i], c = (b.max[i]-o[i]) / d[i]; if (a > c) [a, c] = [c, a];
+    t0 = Math.max(t0, a); t1 = Math.min(t1, c); if (t0 > t1) return Infinity;
+  }
+  return t0 > 0.05 ? t0 : Infinity;
+}
+const pts = [];   // LiDAR-frame points
+for (let ch = 0; ch < 32; ch++) {
+  const el = (-25 + ch * 40 / 31) * DEG;
+  for (let k = 0; k < 1200; k++) {
+    const az = k * 0.3 * DEG, d = [Math.cos(el)*Math.cos(az), Math.cos(el)*Math.sin(az), Math.sin(el)];
+    let t = Infinity;
+    for (const r of rects) t = Math.min(t, hitRect(L, d, r));
+    for (const b of boxes) t = Math.min(t, hitBox(L, d, b));
+    if (t < 40) { t += 0.008 * gauss(); pts.push(scl(d, t)); }
+  }
+}
+
+// ---------- camera model ----------
+function distort(x, y, k1) {
+  // radial k1 model with monotone extension beyond the fold point (keeps far-away geometry from folding back)
+  const r2 = x*x + y*y; let rm2 = 2.5; if (k1 < 0) rm2 = Math.min(rm2, -0.9 / (3 * k1));
+  if (r2 <= rm2) { const f = 1 + k1 * r2; return [x*f, y*f]; }
+  const r = Math.sqrt(r2), rm = Math.sqrt(rm2), rd = rm * (1 + k1*rm2) + (1 + 3*k1*rm2) * (r - rm), f = rd / r;
+  return [x*f, y*f];
+}
+function proj(Xc, K, k1) { const [xd, yd] = distort(Xc[0]/Xc[2], Xc[1]/Xc[2], k1); return [K.fx*xd + K.cx, K.fy*yd + K.cy]; }
+
+// ---------- render the "real" camera image once (true K, true distortion) ----------
+const bg = document.createElement("canvas"); bg.width = W; bg.height = H;
+(function renderBg() {
+  const g = bg.getContext("2d");
+  const sky = g.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#1a2430"); sky.addColorStop(1, "#0f161e"); g.fillStyle = sky; g.fillRect(0, 0, W, H);
+  const Ld = norm([-0.35, 0.45, 0.82]);
+  const toC = p => add(M.mv(R0, sub(p, C)), [0, 0, 0]);
+  function clip(poly) { // Sutherland–Hodgman against z >= 0.1 (camera frame)
+    const out = [], n = poly.length, Z = 0.1;
+    for (let i = 0; i < n; i++) {
+      const a = poly[i], b = poly[(i+1) % n], ia = a[2] >= Z, ib = b[2] >= Z;
+      if (ia) out.push(a);
+      if (ia !== ib) { const s = (Z - a[2]) / (b[2] - a[2]); out.push(add(a, scl(sub(b, a), s))); }
+    }
+    return out;
+  }
+  function path(polyW, seg) {
+    const pc = clip(polyW.map(toC)); if (pc.length < 3) return false;
+    for (let i = 0; i < pc.length; i++) {
+      const a = pc[i], b = pc[(i+1) % pc.length];
+      for (let s = 0; s < seg; s++) { const q = proj(add(a, scl(sub(b, a), s / seg)), K0, K1_TRUE); (i === 0 && s === 0) ? g.moveTo(q[0], q[1]) : g.lineTo(q[0], q[1]); }
+    }
+    g.closePath(); return true;
+  }
+  function shade(hex, n) { const k = 0.42 + 0.58 * Math.max(0, dot(n, Ld)); const v = parseInt(hex.slice(1), 16); return `rgb(${(v>>16&255)*k|0},${(v>>8&255)*k|0},${(v&255)*k|0})`; }
+  function quad(c, u, v, hu, hv) { return [add(add(c, scl(u, -hu)), scl(v, -hv)), add(add(c, scl(u, hu)), scl(v, -hv)), add(add(c, scl(u, hu)), scl(v, hv)), add(add(c, scl(u, -hu)), scl(v, hv))]; }
+  // floor tiles
+  for (let x = -4; x < 9; x++) for (let y = -6; y < 4.5; y += 1) {
+    const y1 = Math.min(y + 1, 4.5);
+    g.beginPath(); if (path([[x, y, 0], [x+1, y, 0], [x+1, y1, 0], [x, y1, 0]], 6)) { g.fillStyle = ((x + Math.floor(y)) & 1) ? "#2c3743" : "#34414f"; g.fill(); }
+  }
+  for (const w of [wallL, wallB]) {
+    g.beginPath(); if (path(quad(w.c, w.u, w.v, w.hu, w.hv), 24)) { g.fillStyle = shade(w.col, scl(w.n, -1)); g.fill(); }
+    g.beginPath(); if (path(quad(add(w.c, scl(w.v, -w.hv + 0.06)), w.u, w.v, w.hu, 0.06), 24)) { g.fillStyle = "#262f39"; g.fill(); }
+  }
+  // objects far -> near
+  const items = boxes.map(b => ({ b, d: Math.hypot((b.min[0]+b.max[0])/2 - C[0], (b.min[1]+b.max[1])/2 - C[1]) }));
+  items.push({ board: true, d: Math.hypot(BC[0] - C[0], BC[1] - C[1]) - 0.01 });
+  items.sort((a, b) => b.d - a.d);
+  for (const it of items) {
+    if (it.board) {
+      g.beginPath(); path(quad(BC, bu, [0, 0, 1], 0.5, 0.4), 8);
+      for (const h of HOLES) { const hc = add(add(BC, scl(bu, h[0])), [0, 0, h[1]]); const ring = []; for (let i = 0; i < 40; i++) { const a = i / 40 * 2 * Math.PI; ring.push(add(add(hc, scl(bu, HR*Math.cos(a))), [0, 0, HR*Math.sin(a)])); } path(ring, 1); }
+      g.fillStyle = shade("#e3e8ee", bn); g.fill("evenodd");
+      continue;
+    }
+    const b = it.b, mn = b.min, mx = b.max, cen = scl(add(mn, mx), 0.5), hs = scl(sub(mx, mn), 0.5);
+    const faces = [[[1,0,0],[0,1,0],[0,0,1],0], [[-1,0,0],[0,1,0],[0,0,1],0], [[0,1,0],[1,0,0],[0,0,1],1], [[0,-1,0],[1,0,0],[0,0,1],1], [[0,0,1],[1,0,0],[0,1,0],2]];
+    for (const [n, u, v, ax] of faces) {
+      const fc = add(cen, [n[0]*hs[0], n[1]*hs[1], n[2]*hs[2]]);
+      if (dot(n, sub(fc, C)) >= 0) continue;
+      const hu = Math.abs(dot(u, hs)), hv = Math.abs(dot(v, hs));
+      g.beginPath(); if (path(quad(fc, u, v, hu, hv), 8)) { g.fillStyle = shade(b.col, n); g.fill(); }
+    }
+  }
+})();
+
+// ---------- state ----------
+const DEF = { roll: 0, pitch: 0, yaw: 0, x: 0, y: 0, z: 0, fs: 0, k1: K1_TRUE };
+const S = { ...DEF, yaw: 1.0, pitch: -0.6, z: 0.05 };   // start slightly off so the effect is visible
+const SL = [
+  ["roll", "Δroll", -5, 5, 0.05, v => v.toFixed(2) + "°"],
+  ["pitch", "Δpitch", -5, 5, 0.05, v => v.toFixed(2) + "°"],
+  ["yaw", "Δyaw", -5, 5, 0.05, v => v.toFixed(2) + "°"],
+  ["x", "Δx", -0.3, 0.3, 0.005, v => (v*100).toFixed(1) + " cm"],
+  ["y", "Δy", -0.3, 0.3, 0.005, v => (v*100).toFixed(1) + " cm"],
+  ["z", "Δz", -0.3, 0.3, 0.005, v => (v*100).toFixed(1) + " cm"],
+  ["fs", "fx 배율", -10, 10, 0.1, v => (v >= 0 ? "+" : "") + v.toFixed(1) + "%"],
+  ["k1", "왜곡 k1", -0.3, 0.3, 0.005, v => v.toFixed(3)],
+];
+const slEl = document.getElementById("sl"), inputs = {};
+SL.forEach(([k, lab, mn, mx, st, f], i) => {
+  if (i === 6) { const d = document.createElement("div"); d.className = "grp"; d.textContent = "내부 파라미터 (정답: fx 760 px, k1 −0.100)"; slEl.appendChild(d); }
+  const row = document.createElement("label"); row.className = "sz";
+  row.innerHTML = `<span>${lab}</span><input type="range" min="${mn}" max="${mx}" step="${st}" value="${S[k]}"><output></output>`;
+  const inp = row.querySelector("input"), out = row.querySelector("output");
+  inputs[k] = { inp, out, row, f };
+  inp.addEventListener("input", () => { S[k] = +inp.value; update(); });
+  slEl.appendChild(row);
+});
+function syncInputs() { for (const k in inputs) { inputs[k].inp.value = S[k]; } }
+
+function estimate() {
+  const Rd = M.mul(M.rz(S.yaw * DEG), M.mul(M.ry(S.pitch * DEG), M.rx(S.roll * DEG)));
+  const R = M.mul(R0, Rd), t = add(M.mv(R0, [S.x, S.y, S.z]), t0);   // T_est = T_true · Δ  (Δ in LiDAR frame)
+  const K = { fx: K0.fx * (1 + S.fs / 100), fy: K0.fy, cx: K0.cx, cy: K0.cy };
+  return { R, t, K, k1: S.k1 };
+}
+function turbo(t) {
+  t = Math.min(1, Math.max(0, t));
+  const r = 0.13572138 + t*(4.61539260 + t*(-42.66032258 + t*(132.13108234 + t*(-152.94239396 + t*59.28637943))));
+  const g = 0.09140261 + t*(2.19418839 + t*(4.84296658 + t*(-14.18503333 + t*(4.27729857 + t*2.82956604))));
+  const b = 0.10667330 + t*(12.64194608 + t*(-60.58204836 + t*(110.36276771 + t*(-89.90310912 + t*27.34824973))));
+  return [Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b))];
+}
+const turboCss = t => { const c = turbo(t); return `rgb(${c[0]*255|0},${c[1]*255|0},${c[2]*255|0})`; };
+const depthT = d => (d - 1.5) / 8;
+
+// ---------- 2D image ----------
+const img = document.getElementById("img"), ig = img.getContext("2d");
+const fmt = (v, n = 3, w = 8) => { const s = (Math.abs(v) < 0.5 * Math.pow(10, -n) ? 0 : v).toFixed(n); return s.padStart(w); };
+function update() {
+  for (const k in inputs) { const it = inputs[k]; it.out.textContent = it.f(S[k]); it.row.classList.toggle("off", Math.abs(S[k] - DEF[k]) > 1e-9); }
+  const E = estimate();
+  ig.drawImage(bg, 0, 0);
+  // projected LiDAR points
+  for (const p of pts) {
+    const Xc = add(M.mv(E.R, p), E.t); if (Xc[2] < 0.3) continue;
+    const q = proj(Xc, E.K, E.k1); if (q[0] < -2 || q[0] > W + 2 || q[1] < -2 || q[1] > H + 2) continue;
+    ig.fillStyle = turboCss(depthT(Xc[2])); ig.fillRect(q[0] - 1.3, q[1] - 1.3, 2.6, 2.6);
+  }
+  // hole centers: true (image) vs from LiDAR with current params
+  let sum = 0; const per = [];
+  holeL.forEach((p, i) => {
+    const qt = proj(add(M.mv(R0, p), t0), K0, K1_TRUE), qe = proj(add(M.mv(E.R, p), E.t), E.K, E.k1);
+    const e = Math.hypot(qe[0] - qt[0], qe[1] - qt[1]); sum += e; per.push(e);
+    ig.lineWidth = 2; ig.strokeStyle = "#1e9bd7"; ig.beginPath(); ig.arc(qt[0], qt[1], 7, 0, 2*Math.PI); ig.stroke();
+    if (e > 0.5) { ig.strokeStyle = "rgba(232,184,74,.8)"; ig.lineWidth = 1.5; ig.beginPath(); ig.moveTo(qt[0], qt[1]); ig.lineTo(qe[0], qe[1]); ig.stroke(); }
+    ig.strokeStyle = "#e8b84a"; ig.lineWidth = 2.5; ig.beginPath(); ig.moveTo(qe[0]-6, qe[1]-6); ig.lineTo(qe[0]+6, qe[1]+6); ig.moveTo(qe[0]+6, qe[1]-6); ig.lineTo(qe[0]-6, qe[1]+6); ig.stroke();
+  });
+  const score = sum / 4;
+  // depth colour bar
+  ig.fillStyle = "rgba(11,17,24,.75)"; ig.fillRect(12, H - 40, 236, 28);
+  for (let i = 0; i < 160; i++) { ig.fillStyle = turboCss(i / 159); ig.fillRect(52 + i, H - 32, 1, 12); }
+  ig.font = "13px IBM Plex Mono, monospace"; ig.fillStyle = "#e6edf5"; ig.fillText("1.5m", 16, H - 21); ig.fillText("9.5m", 216, H - 21);
+  ig.fillStyle = "rgba(11,17,24,.75)"; ig.fillRect(12, 12, 230, 30);
+  ig.font = "600 16px 'IBM Plex Sans KR', 'Malgun Gothic', sans-serif"; ig.fillStyle = score < 2 ? "#5fd39a" : "#e8b84a"; ig.fillText(`구멍 중심 오차 ${score.toFixed(2)} px`, 22, 33);
+
+  document.getElementById("sc").textContent = score.toFixed(2) + " px";
+  const st = document.getElementById("st"); const ok = score < 2;
+  st.textContent = ok ? "정렬 완료!" : "정렬 필요"; st.className = "st " + (ok ? "good" : "bad");
+  document.getElementById("holes").textContent = "구멍별 오차: " + per.map((e, i) => `#${i+1} ${e.toFixed(1)}`).join(" · ") + " px  (2 px 미만이면 정렬 완료)";
+  const K = E.K;
+  document.getElementById("mK").innerHTML = `⎡${fmt(K.fx,1)} ${fmt(0,1)} ${fmt(K.cx,1)} ⎤\n⎢${fmt(0,1)} ${fmt(K.fy,1)} ${fmt(K.cy,1)} ⎥\n⎣${fmt(0,1)} ${fmt(0,1)} ${fmt(1,1)} ⎦ <span class="d">px</span>`;
+  document.getElementById("mD").innerHTML = `[k1 k2 p1 p2 k3] = [${E.k1.toFixed(3)} 0 0 0 0]`;
+  const R = E.R, t = E.t, row = i => `${fmt(R[i*3])} ${fmt(R[i*3+1])} ${fmt(R[i*3+2])} │${fmt(t[i])}`;
+  document.getElementById("mT").innerHTML = `⎡${row(0)} ⎤\n⎢${row(1)} ⎥\n⎢${row(2)} ⎥\n⎣${fmt(0)} ${fmt(0)} ${fmt(0)} │${fmt(1)} ⎦\n<span class="d">  ─────── R ───────────    t (m)</span>`;
+  const chal = document.getElementById("chal");
+  if (challenge) chal.innerHTML = ok ? `<b style="color:var(--ok)">성공! 손으로 다시 맞췄습니다.</b>` : `도전: 노란 슬라이더 값을 움직여 오차를 2 px 아래로 맞춰 보세요.`;
+  else chal.textContent = "";
+  update3D(E);
+}
+let challenge = false;
+document.getElementById("reset").onclick = () => { Object.assign(S, DEF); challenge = false; syncInputs(); update(); };
+document.getElementById("rand").onclick = () => {
+  Object.assign(S, DEF);
+  const keys = ["roll", "pitch", "yaw", "x", "y", "z", "fs", "k1"].sort(() => Math.random() - 0.5).slice(0, 2 + (Math.random() < 0.5 ? 1 : 0));
+  const sg = () => Math.random() < 0.5 ? -1 : 1, R = (a, b) => a + Math.random() * (b - a);
+  for (const k of keys) {
+    if (k === "roll" || k === "pitch" || k === "yaw") S[k] = +(sg() * R(1, 3.5)).toFixed(2);
+    else if (k === "fs") S[k] = +(sg() * R(3, 8)).toFixed(1);
+    else if (k === "k1") S[k] = +(K1_TRUE + sg() * R(0.08, 0.18)).toFixed(3);
+    else S[k] = +(sg() * R(0.06, 0.22)).toFixed(3);
+  }
+  challenge = true; syncInputs(); update();
+};
+
+// ---------- 3D view (three.js) ----------
+let update3D = () => {};
+(function init3D() {
+  if (!window.THREE) return;
+  const stage = document.getElementById("stage"), cv = document.getElementById("cv3");
+  const renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  const scene = new THREE.Scene();
+  const cam = new THREE.PerspectiveCamera(48, 1, 0.05, 200); cam.up.set(0, 0, 1);
+  cam.position.set(-1.6, -4.6, 3.3);
+  const ctl = new THREE.OrbitControls(cam, cv); ctl.target.set(2.6, 0.2, 1.0); ctl.enableDamping = true; ctl.update();
+  scene.add(new THREE.AmbientLight(0xffffff, 0.55)); const dl = new THREE.DirectionalLight(0xffffff, 0.7); dl.position.set(-4, 6, 10); scene.add(dl);
+  const V = a => new THREE.Vector3(a[0], a[1], a[2]);
+  const mat = (c, o) => new THREE.MeshLambertMaterial({ color: c, transparent: o < 1, opacity: o, side: THREE.DoubleSide });
+  const fl = new THREE.Mesh(new THREE.PlaneGeometry(13, 10.5), mat(0x1b2531, 1)); fl.position.set(2.5, -0.75, -0.002); scene.add(fl);
+  const grid = []; for (let x = -4; x <= 9; x++) grid.push(V([x, -6, 0]), V([x, 4.5, 0])); for (let y = -6; y <= 4.5; y++) grid.push(V([-4, y, 0]), V([9, y, 0]));
+  scene.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(grid), new THREE.LineBasicMaterial({ color: 0x2a3a4a })));
+  const wB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 10.5, 3.2), mat(0x5a6878, 0.35)); wB.position.set(9.04, -0.75, 1.6); scene.add(wB);
+  const wL = new THREE.Mesh(new THREE.BoxGeometry(13, 0.08, 3.2), mat(0x4e5b6b, 0.35)); wL.position.set(2.5, 4.54, 1.6); scene.add(wL);
+  for (const b of boxes) { const s = sub(b.max, b.min), m = new THREE.Mesh(new THREE.BoxGeometry(s[0], s[1], s[2]), mat(parseInt(b.col.slice(1), 16), 1)); m.position.copy(V(scl(add(b.min, b.max), 0.5))); scene.add(m); }
+  const sh = new THREE.Shape(); sh.moveTo(-0.5, -0.4); sh.lineTo(0.5, -0.4); sh.lineTo(0.5, 0.4); sh.lineTo(-0.5, 0.4); sh.lineTo(-0.5, -0.4);
+  for (const h of HOLES) { const p = new THREE.Path(); p.absarc(h[0], h[1], HR, 0, Math.PI * 2, true); sh.holes.push(p); }
+  const bg3 = new THREE.ShapeGeometry(sh, 24);
+  const mB = new THREE.Matrix4().makeBasis(V(bu), V([0, 0, 1]), V(bn)); mB.setPosition(V(BC)); bg3.applyMatrix4(mB);
+  scene.add(new THREE.Mesh(bg3, mat(0xc9d6e6, 1)));
+  // LiDAR points
+  const pos = new Float32Array(pts.length * 3), col = new Float32Array(pts.length * 3);
+  pts.forEach((p, i) => { pos[i*3] = p[0] + L[0]; pos[i*3+1] = p[1] + L[1]; pos[i*3+2] = p[2] + L[2]; const c = turbo(depthT(Math.hypot(p[0], p[1]))); col.set(c, i*3); });
+  const pg = new THREE.BufferGeometry(); pg.setAttribute("position", new THREE.BufferAttribute(pos, 3)); pg.setAttribute("color", new THREE.BufferAttribute(col, 3));
+  scene.add(new THREE.Points(pg, new THREE.PointsMaterial({ size: 0.035, vertexColors: true })));
+  const lid = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.12, 24), mat(0x7fe0c4, 1)); lid.rotation.x = Math.PI / 2; lid.position.copy(V(L)); scene.add(lid);
+  function frustum(color) {
+    const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(new Float32Array(16 * 3), 3));
+    const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color })); scene.add(l); return l;
+  }
+  function setFrustum(l, R, t, K, depth) {
+    const Rt = M.tr(R), c = add(scl(M.mv(Rt, t), -1), L);
+    const cs = [[0, 0], [W, 0], [W, H], [0, H]].map(([u, v]) => add(c, M.mv(Rt, scl([(u - K.cx) / K.fx, (v - K.cy) / K.fy, 1], depth))));
+    const a = l.geometry.attributes.position; let i = 0; const put = p => { a.setXYZ(i++, p[0], p[1], p[2]); };
+    for (let k = 0; k < 4; k++) { put(c); put(cs[k]); put(cs[k]); put(cs[(k + 1) % 4]); }
+    a.needsUpdate = true; l.geometry.computeBoundingSphere();
+  }
+  const fT = frustum(0x1e9bd7), fE = frustum(0xe8b84a);
+  setFrustum(fT, R0, t0, K0, 1.1);
+  update3D = E => { setFrustum(fE, E.R, E.t, E.K, 1.1); fE.visible = true; };
+  function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); cam.aspect = w / Math.max(1, h); cam.updateProjectionMatrix(); }
+  new ResizeObserver(resize).observe(stage); resize();
+  (function loop() { ctl.update(); renderer.render(scene, cam); requestAnimationFrame(loop); })();
+})();
+update();
+})();
+</script>
+</body>
+</html>
